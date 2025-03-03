@@ -567,7 +567,7 @@ Users.get("/share-profile", async (req, res) => {
 Users.put("/update", verifyToken, async (req, res) => {
   try {
     console.log('Profile Updating-------------------------------------');
-     console.log('Profile Updating-------------------------------------', req.decoded.id);
+     console.log('Profile Updating-------------------------------------', req.user.id);
     const user_id = req.decoded.id;
     const {
       first_name,
