@@ -158,6 +158,7 @@ const verifyToken = (req, res, next) => {
         message: "No token provided" 
       });
     }
+
     // Split 'Bearer token' and get only the token part
     const token = authHeader.split(' ')[1];
     if (!token) {
@@ -166,15 +167,17 @@ const verifyToken = (req, res, next) => {
         message: "Invalid token format" 
       });
     }
-    // Verify the token
-    req.decoded = jwtDecode(token);
+
+    // Verify the token using jwt instead of jwtDecode
+    const decoded = jwt.verify(token, SECRET_KEY);
+    req.user = decoded; // Store decoded user info
     next();
   } catch (error) {
     console.log("Token verification error:", error);
     return res.status(401).json({ 
       status: false,
-      message: "Invalid token",
-      error: error.message 
+      message: "Invalid or expired token",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -294,7 +297,6 @@ Users.post("/login", async (req, res) => {
   try {
     console.log("Login attempt for email:", req.body.email);
 
-    // Get user data from database using Supabase syntax
     const result = await db.User.findOne({
       email: req.body.email
     });
@@ -332,7 +334,7 @@ Users.post("/login", async (req, res) => {
 
     // Compare password
     if (bcrypt.compareSync(req.body.password, user.password)) {
-      // Create token
+      // Create token with user data
       const tokenData = {
         id: user.id,
         email: user.email,
@@ -341,13 +343,21 @@ Users.post("/login", async (req, res) => {
       };
 
       const token = jwt.sign(tokenData, SECRET_KEY, {
-        expiresIn: 1440,
+        expiresIn: '24h' // More explicit expiration
       });
       
       return res.json({
         status: true,
         message: "Login successful",
-        token: token
+        data: {
+          token: token,
+          user: {
+            id: user.id,
+            email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name
+          }
+        }
       });
     } else {
       return res.status(401).json({
@@ -368,47 +378,53 @@ Users.post("/login", async (req, res) => {
 // Reset Password Route
 Users.post("/resetpassword", verifyToken, async (req, res) => {
   try {
-
-    console.log('Reset Passwrd Area');
     const { password } = req.body;
-    console.log(password);
     if (!password) {
-      return res.status(400).json({ status: false, message: "Password is required" });
+      return res.status(400).json({ 
+        status: false, 
+        message: "Password is required" 
+      });
     }
 
-    // Extract user ID from token
-    const authHeader = req.headers["authorization"];
-    if (!authHeader) {
-      return res.status(401).json({ status: false, message: "Unauthorized: No token provided" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwtDecode(token);
-    const userId = decoded.id;
+    // Use the decoded user info from the middleware
+    const userId = req.user.id;
 
     // Find User by ID
-    const user = await User.findOne({ where: { id: userId } });
-    if (!user) {
-      return res.status(404).json({ status: false, message: "User not found" });
+    const { data: user, error: findError } = await db.User.findOne({
+      id: userId
+    });
+
+    if (findError || !user) {
+      return res.status(404).json({ 
+        status: false, 
+        message: "User not found" 
+      });
     }
 
     // Hash the new password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Update password
-    await User.update(
+    const { error: updateError } = await db.User.update(
       { password: hashedPassword },
-      { where: { id: userId } }
+      { id: userId }
     );
 
-    return res.json({ status: true, message: "Password updated successfully" });
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    return res.json({ 
+      status: true, 
+      message: "Password updated successfully" 
+    });
 
   } catch (error) {
     console.error("Reset Password Error:", error);
     res.status(500).json({
       status: false,
-      message: "Internal server error",
-      error: error.message,
+      message: "Failed to reset password",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
