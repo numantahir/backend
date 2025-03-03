@@ -1,0 +1,56 @@
+{
+  "development": {
+    "username": "myuser",
+    "password": "Ellight!@@!1",
+    "database": "digime",
+    "host": "localhost",
+    "dialect": "mysql",
+    "port": 3306,
+    "gmail": {
+      "user": "your_email@gmail.com",
+      "pass": "your_email_password"
+    },
+    "google": {
+      "clientID": "YOUR_GOOGLE_CLIENT_ID",
+      "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+      "callbackURL": "http://localhost:8000/auth/google/callback"
+    },
+    "jwtSecret": "YOUR_JWT_SECRET"
+  },
+  "test": {
+    "username": "node_user",
+    "password": "Elligh!@@!1",
+    "database": "node_db",
+    "host": "localhost",
+    "dialect": "mysql",
+    "port": 3306,
+    "gmail": {
+      "user": "your_email@gmail.com",
+      "pass": "your_email_password"
+    },
+    "google": {
+      "clientID": "YOUR_GOOGLE_CLIENT_ID",
+      "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+      "callbackURL": "http://localhost:8000/auth/google/callback"
+    },
+    "jwtSecret": "YOUR_JWT_SECRET"
+  },
+  "production": {
+    "username": "node_user",
+    "password": "Elligh!@@!1",
+    "database": "node_db",
+    "host": "localhost",
+    "dialect": "mysql",
+    "port": 3306,
+    "gmail": {
+      "user": "your_email@gmail.com",
+      "pass": "your_email_password"
+    },
+    "google": {
+      "clientID": "YOUR_GOOGLE_CLIENT_ID",
+      "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+      "callbackURL": "http://localhost:8000/auth/google/callback"
+    },
+    "jwtSecret": "YOUR_JWT_SECRET"
+  }
+}

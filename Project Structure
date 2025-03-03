@@ -1,0 +1,19 @@
+your-project/
+├── server.js
+├── vercel.json
+├── package.json
+├── database/
+│   └── supabase-init.sql
+├── config/
+│   ├── supabase.js
+│   └── config.json
+├── models/
+│   ├── index.js
+│   ├── User.js
+│   └── ...
+├── routes/
+│   ├── Users.js
+│   └── ...
+├── .env
+├── .env.production
+└── .gitignore 
