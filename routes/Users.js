@@ -6,20 +6,11 @@ const bcrypt = require("bcrypt");
 const db = require("../models");
 const cloudinary = require("cloudinary").v2;
 const multer = require("multer");
-// const { jwtDecode } = require("jwt-decode");
+const { jwtDecode } = require("jwt-decode");
 const emailConfig = require("../config/emailConfig");
 const nodemailer = require("nodemailer");
 const SECRET_KEY = process.env.SECRET_KEY || "secret";
 console.log("Available models:", Object.keys(db));
-const User = db.User;
-console.log("User model:", User);
-console.log("User model methods:", Object.getOwnPropertyNames(User.__proto__));
-console.log("User model attributes:", Object.keys(User.rawAttributes || {}));
-console.log("Database connection:", {
-  isConnected: !!db,
-  models: Object.keys(db),
-  userModel: !!db.User
-});
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: "dd3kdc8cr",
@@ -151,70 +142,30 @@ const uploadToCloudinary = async (file, folder) => {
 };
 const verifyToken = (req, res, next) => {
   try {
-    console.log("Headers received:", req.headers);
     const authHeader = req.headers["authorization"];
-    console.log("Auth header:", authHeader);
-    
     if (!authHeader) {
-      return res.status(401).json({ 
-        status: false,
-        message: "No authorization header provided" 
-      });
-    }
-
-    // Check if the header starts with 'Bearer '
-    if (!authHeader.startsWith('Bearer ')) {
-      console.log("Invalid header format. Header received:", authHeader);
-      return res.status(401).json({ 
-        status: false,
-        message: "Invalid authorization format. Must start with 'Bearer'" 
-      });
-    }
-
-    // Extract the token (everything after 'Bearer ')
-    const token = authHeader.substring(7);
-    console.log("Extracted token:", token);
-
-    if (!token) {
       return res.status(401).json({ 
         status: false,
         message: "No token provided" 
       });
     }
-
-    try {
-      // Log the token and secret being used
-      console.log("SECRET_KEY length:", SECRET_KEY.length);
-      console.log("Token length:", token.length);
-      
-      // Verify the token
-      const decoded = jwt.verify(token, SECRET_KEY);
-      console.log("Successfully decoded token:", {
-        id: decoded.id,
-        email: decoded.email
-      });
-      
-      req.user = decoded;
-      next();
-    } catch (jwtError) {
-      console.log("JWT verification error details:", {
-        name: jwtError.name,
-        message: jwtError.message,
-        token: token.substring(0, 10) + '...' // Log first 10 chars of token for debugging
-      });
-      
+    // Split 'Bearer token' and get only the token part
+    const token = authHeader.split(' ')[1];
+    if (!token) {
       return res.status(401).json({ 
         status: false,
-        message: "Invalid token format or signature",
-        error: process.env.NODE_ENV === 'development' ? jwtError.message : undefined
+        message: "Invalid token format" 
       });
     }
+    // Verify the token
+    req.decoded = jwtDecode(token);
+    next();
   } catch (error) {
     console.log("Token verification error:", error);
     return res.status(401).json({ 
       status: false,
-      message: "Token verification failed",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Invalid token",
+      error: error.message 
     });
   }
 };
@@ -227,6 +178,7 @@ const generateSlug = (str) => {
     .replace(/\s+/g, "-"); // Replace spaces with hyphens
 };
 
+const User = db.User; // Make sure this matches the export in your models/index.js
 if (!User) {
   console.error("User model is not properly initialized!");
   process.exit(1);
@@ -245,19 +197,11 @@ Users.post("/register", async (req, res) => {
     };
 
     // Check if email exists
-    const { data: existingUsers, error: findError } = await db.User.findOne({
-      email: req.body.email
+    const { data: existingUser } = await db.User.findOne({
+      email: req.body.email,
     });
 
-    if (findError) {
-      return res.status(500).json({
-        status: false,
-        message: "Error checking existing user",
-        error: process.env.NODE_ENV === 'development' ? findError.message : undefined
-      });
-    }
-
-    if (existingUsers && existingUsers.length > 0) {
+    if (existingUser) {
       return res.status(400).json({ 
         status: false,
         message: "User already exists" 
@@ -332,72 +276,42 @@ Users.post("/register", async (req, res) => {
 
 Users.post("/login", async (req, res) => {
   try {
-    console.log("Login attempt for email:", req.body.email);
-
-    const result = await db.User.findOne({
-      email: req.body.email
+    // Get user data from database
+    const { data, error } = await db.User.findOne({
+      email: req.body.email,
     });
 
-    console.log("Database response:", JSON.stringify(result, null, 2));
-
     // Check for database error
-    if (result.error) {
-      console.error("Database Error:", result.error);
+    if (error) {
+      console.error("Database Error:", error);
       return res.status(500).json({
         status: false,
         message: "Database error occurred",
-        error: process.env.NODE_ENV === 'development' ? result.error.message : undefined
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
 
-    // Check if user exists and handle potential undefined data
-    if (!result.data || result.data.length === 0) {
+    // Check if user exists
+    if (!data || data.length === 0) {
       return res.status(400).json({
         status: false,
         message: "User does not exist"
       });
     }
 
-    const user = result.data;
-    console.log("Found user:", { id: user.id, email: user.email });
-
-    if (!user.password) {
-      console.error("User found but password is missing");
-      return res.status(500).json({
-        status: false,
-        message: "Invalid user data"
-      });
-    }
+    const user = data[0]; // Get the first user from the data array
 
     // Compare password
     if (bcrypt.compareSync(req.body.password, user.password)) {
-      // Create token with user data
-      const tokenData = {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name
-      };
-
-      // Generate token without Bearer prefix
-      const token = jwt.sign(tokenData, SECRET_KEY, {
-        expiresIn: '24h'
+      // Create token
+      const token = jwt.sign(user, SECRET_KEY, {
+        expiresIn: 1440,
       });
       
-      console.log("Generated token:", token.substring(0, 10) + '...'); // Log first 10 chars
-
       return res.json({
         status: true,
         message: "Login successful",
-        data: {
-          token: token, // Send token without Bearer prefix
-          user: {
-            id: user.id,
-            email: user.email,
-            first_name: user.first_name,
-            last_name: user.last_name
-          }
-        }
+        token: token
       });
     } else {
       return res.status(401).json({
@@ -418,72 +332,74 @@ Users.post("/login", async (req, res) => {
 // Reset Password Route
 Users.post("/resetpassword", verifyToken, async (req, res) => {
   try {
+
+    console.log('Reset Passwrd Area');
     const { password } = req.body;
+    console.log(password);
     if (!password) {
-      return res.status(400).json({ 
-        status: false, 
-        message: "Password is required" 
-      });
+      return res.status(400).json({ status: false, message: "Password is required" });
     }
 
-    // Use the decoded user info from the middleware
-    const userId = req.user.id;
+    // Extract user ID from token
+    const authHeader = req.headers["authorization"];
+    if (!authHeader) {
+      return res.status(401).json({ status: false, message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwtDecode(token);
+    const userId = decoded.id;
 
     // Find User by ID
-    const { data: user, error: findError } = await db.User.findOne({
-      id: userId
-    });
-
-    if (findError || !user) {
-      return res.status(404).json({ 
-        status: false, 
-        message: "User not found" 
-      });
+    const user = await User.findOne({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found" });
     }
 
     // Hash the new password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Update password
-    const { error: updateError } = await db.User.update(
+    await User.update(
       { password: hashedPassword },
-      { id: userId }
+      { where: { id: userId } }
     );
 
-    if (updateError) {
-      throw new Error(updateError.message);
-    }
-
-    return res.json({ 
-      status: true, 
-      message: "Password updated successfully" 
-    });
+    return res.json({ status: true, message: "Password updated successfully" });
 
   } catch (error) {
     console.error("Reset Password Error:", error);
     res.status(500).json({
       status: false,
-      message: "Failed to reset password",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Internal server error",
+      error: error.message,
     });
   }
 });
 
 
-Users.get("/profile", verifyToken, async (req, res) => {
+Users.get("/profile", async (req, res) => {
   try {
-    // Get user data using the verified user info from middleware
-    const { data: user, error } = await db.User.findOne({
-      id: req.user.id
-    });
-
-    if (error) {
-      return res.status(500).json({
+    const authHeader = req.headers["authorization"];
+    if (!authHeader) {
+      return res.status(401).json({
         status: false,
-        message: "Database error occurred",
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: "No token provided"
       });
     }
+
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({
+        status: false,
+        message: "Invalid token format"
+      });
+    }
+
+    const decoded = jwtDecode(token);
+    const { data: user } = await db.User.findOne({
+      id: decoded.id
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -493,32 +409,24 @@ Users.get("/profile", verifyToken, async (req, res) => {
     }
 
     // Get social links with platform info
-    const { data: socialLinks, error: socialError } = await db.UserSocialLinks.findAll({
+    const { data: socialLinks } = await db.UserSocialLinks.findAll({
       user_id: user.id,
       user_social_status: 1
     });
 
-    if (socialError) {
-      console.error("Error fetching social links:", socialError);
-    }
-
-    // Prepare response data
-    const userData = {
-      ...user,
-      social_links: socialLinks || []
-    };
+    user.social_links = socialLinks;
 
     res.json({
       status: true,
       message: "Profile retrieved successfully",
-      data: userData,
+      data: user,
     });
   } catch (error) {
     console.error("Profile Error:", error);
     res.status(500).json({
       status: false,
-      message: "Failed to retrieve profile",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Internal server error",
+      error: error.message,
     });
   }
 });
