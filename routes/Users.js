@@ -152,31 +152,50 @@ const uploadToCloudinary = async (file, folder) => {
 const verifyToken = (req, res, next) => {
   try {
     const authHeader = req.headers["authorization"];
+    
     if (!authHeader) {
+      return res.status(401).json({ 
+        status: false,
+        message: "No authorization header provided" 
+      });
+    }
+
+    // Check if the header starts with 'Bearer '
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        status: false,
+        message: "Invalid authorization format. Must start with 'Bearer'" 
+      });
+    }
+
+    // Extract the token (everything after 'Bearer ')
+    const token = authHeader.substring(7);
+
+    if (!token) {
       return res.status(401).json({ 
         status: false,
         message: "No token provided" 
       });
     }
 
-    // Split 'Bearer token' and get only the token part
-    const token = authHeader.split(' ')[1];
-    if (!token) {
+    try {
+      // Verify the token
+      const decoded = jwt.verify(token, SECRET_KEY);
+      req.user = decoded;
+      next();
+    } catch (jwtError) {
+      console.log("JWT verification error:", jwtError);
       return res.status(401).json({ 
         status: false,
-        message: "Invalid token format" 
+        message: jwtError.message || "Invalid token",
+        error: process.env.NODE_ENV === 'development' ? jwtError.message : undefined
       });
     }
-
-    // Verify the token using jwt instead of jwtDecode
-    const decoded = jwt.verify(token, SECRET_KEY);
-    req.user = decoded; // Store decoded user info
-    next();
   } catch (error) {
     console.log("Token verification error:", error);
     return res.status(401).json({ 
       status: false,
-      message: "Invalid or expired token",
+      message: "Token verification failed",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -343,14 +362,14 @@ Users.post("/login", async (req, res) => {
       };
 
       const token = jwt.sign(tokenData, SECRET_KEY, {
-        expiresIn: '24h' // More explicit expiration
+        expiresIn: '24h'
       });
       
       return res.json({
         status: true,
         message: "Login successful",
         data: {
-          token: token,
+          token: `Bearer ${token}`,
           user: {
             id: user.id,
             email: user.email,
