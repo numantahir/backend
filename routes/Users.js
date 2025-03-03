@@ -11,6 +11,9 @@ const emailConfig = require("../config/emailConfig");
 const nodemailer = require("nodemailer");
 const SECRET_KEY = process.env.SECRET_KEY || "secret";
 console.log("Available models:", Object.keys(db));
+const User = db.User;
+console.log("User model methods:", Object.keys(User));
+console.log("User model type:", typeof User);
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: "dd3kdc8cr",
@@ -178,7 +181,6 @@ const generateSlug = (str) => {
     .replace(/\s+/g, "-"); // Replace spaces with hyphens
 };
 
-const User = db.User; // Make sure this matches the export in your models/index.js
 if (!User) {
   console.error("User model is not properly initialized!");
   process.exit(1);
@@ -276,10 +278,11 @@ Users.post("/register", async (req, res) => {
 
 Users.post("/login", async (req, res) => {
   try {
-    // Get user data from database
-    const { data, error } = await db.User.findOne({
-      email: req.body.email,
-    });
+    // Get user data from database using proper Supabase query
+    const { data, error } = await db.User
+      .select('*')
+      .eq('email', req.body.email)
+      .single();
 
     // Check for database error
     if (error) {
@@ -292,19 +295,17 @@ Users.post("/login", async (req, res) => {
     }
 
     // Check if user exists
-    if (!data || data.length === 0) {
+    if (!data) {
       return res.status(400).json({
         status: false,
         message: "User does not exist"
       });
     }
 
-    const user = data[0]; // Get the first user from the data array
-
     // Compare password
-    if (bcrypt.compareSync(req.body.password, user.password)) {
+    if (bcrypt.compareSync(req.body.password, data.password)) {
       // Create token
-      const token = jwt.sign(user, SECRET_KEY, {
+      const token = jwt.sign(data, SECRET_KEY, {
         expiresIn: 1440,
       });
       
