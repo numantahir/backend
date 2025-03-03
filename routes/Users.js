@@ -679,7 +679,7 @@ Users.get("/share-profile", async (req, res) => {
 
 Users.put("/update", verifyToken, async (req, res) => {
   try {
-    console.log("Profile Updating for User ID :", req.user.id);
+    console.log("Profile Updating for User ID:", req.user.id);
     const user_id = req.user.id;
 
     const {
@@ -695,9 +695,13 @@ Users.put("/update", verifyToken, async (req, res) => {
     } = req.body;
 
     // Check if user exists
-    const user = await db.User.findOne({ id: user_id });
+    const { data: user, error: userError } = await db
+      .from("User")
+      .select("*")
+      .eq("id", user_id)
+      .single();
 
-    if (!user) {
+    if (userError || !user) {
       return res.status(404).json({
         status: false,
         message: "User not found",
@@ -715,17 +719,19 @@ Users.put("/update", verifyToken, async (req, res) => {
     if (profile_image) updatedFields.profile_image = profile_image;
     if (cover_image) updatedFields.cover_image = cover_image;
 
-    // Update user and return updated data
-    const [updatedUser] = await db.User.update(updatedFields, { id: user_id }).returning("*");
+    // Update user
+    const { error: updateError } = await db
+      .from("User")
+      .update(updatedFields)
+      .eq("id", user_id);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
 
     // Handle social links update
     if (social_links.length > 0) {
-      const existingLinks = await db.UserSocialLinks.findAll({ user_id });
-
-      const updates = [];
-      const inserts = [];
-
-      social_links.forEach(({ social_type_id, social_link, user_social_status = 1 }) => {
+      for (const { social_type_id, social_link, user_social_status = 1 } of social_links) {
         if (!social_type_id || !social_link) {
           return res.status(400).json({
             status: false,
@@ -733,30 +739,66 @@ Users.put("/update", verifyToken, async (req, res) => {
           });
         }
 
-        const existing = existingLinks.find(link => link.social_type_id === social_type_id);
-        if (existing) {
-          // Update existing link
-          updates.push(
-            db.UserSocialLinks.update(
-              { social_link, user_social_status, updated: new Date() },
-              { id: existing.id }
-            )
-          );
-        } else {
-          // Insert new link
-          inserts.push(
-            db.UserSocialLinks.create({ user_id, social_type_id, social_link, user_social_status })
-          );
-        }
-      });
+        // Check if social link exists
+        const { data: existingLink, error: findError } = await db
+          .from("UserSocialLinks")
+          .select("id")
+          .eq("user_id", user_id)
+          .eq("social_type_id", social_type_id)
+          .single();
 
-      // Execute all updates and inserts in parallel
-      await Promise.all([...updates, ...inserts]);
+        if (findError) {
+          console.error("Error finding social link:", findError.message);
+        }
+
+        if (existingLink) {
+          // Update existing link
+          const { error: updateSocialError } = await db
+            .from("UserSocialLinks")
+            .update({
+              social_link,
+              user_social_status,
+              updated: new Date(),
+            })
+            .eq("id", existingLink.id);
+
+          if (updateSocialError) {
+            console.error("Error updating social link:", updateSocialError.message);
+          }
+        } else {
+          // Create new link
+          const { error: insertError } = await db
+            .from("UserSocialLinks")
+            .insert([{ user_id, social_type_id, social_link, user_social_status }]);
+
+          if (insertError) {
+            console.error("Error inserting new social link:", insertError.message);
+          }
+        }
+      }
     }
 
-    // Fetch final user data with social links
-    const finalUser = await db.User.findOne({ id: user_id });
-    finalUser.social_links = await db.UserSocialLinks.findAll({ user_id });
+    // Fetch final updated user data with social links
+    const { data: finalUser, error: finalUserError } = await db
+      .from("User")
+      .select("*")
+      .eq("id", user_id)
+      .single();
+
+    if (finalUserError) {
+      throw new Error(finalUserError.message);
+    }
+
+    const { data: updatedSocialLinks, error: socialLinksError } = await db
+      .from("UserSocialLinks")
+      .select("*")
+      .eq("user_id", user_id);
+
+    if (socialLinksError) {
+      console.error("Error fetching updated social links:", socialLinksError.message);
+    }
+
+    finalUser.social_links = updatedSocialLinks || [];
 
     return res.json({
       status: true,
@@ -772,6 +814,7 @@ Users.put("/update", verifyToken, async (req, res) => {
     });
   }
 });
+
 
 Users.put(
   "/update-image",
