@@ -11,10 +11,6 @@ const emailConfig = require("../config/emailConfig");
 const nodemailer = require("nodemailer");
 const SECRET_KEY = process.env.SECRET_KEY || "secret";
 console.log("Available models:", Object.keys(db));
-const User = db.User;
-console.log("User model:", User);
-console.log("User model methods:", Object.getOwnPropertyNames(User.__proto__));
-console.log("User model attributes:", Object.keys(User.rawAttributes || {}));
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: "dd3kdc8cr",
@@ -182,6 +178,7 @@ const generateSlug = (str) => {
     .replace(/\s+/g, "-"); // Replace spaces with hyphens
 };
 
+const User = db.User; // Make sure this matches the export in your models/index.js
 if (!User) {
   console.error("User model is not properly initialized!");
   process.exit(1);
@@ -199,26 +196,6 @@ Users.post("/register", async (req, res) => {
       created: today,
     };
 
-    // Check if email exists
-    const { data: existingUsers, error: findError } = await db.User.findOne({
-      email: req.body.email
-    });
-
-    if (findError) {
-      return res.status(500).json({
-        status: false,
-        message: "Error checking existing user",
-        error: process.env.NODE_ENV === 'development' ? findError.message : undefined
-      });
-    }
-
-    if (existingUsers && existingUsers.length > 0) {
-      return res.status(400).json({ 
-        status: false,
-        message: "User already exists" 
-      });
-    }
-
     // Generate profile URL
     let baseProfileURL = generateSlug(`${req.body.first_name}`);
     let GProfileURL = baseProfileURL;
@@ -233,109 +210,63 @@ Users.post("/register", async (req, res) => {
       GProfileURL = `${baseProfileURL}-${counter}`;
     }
 
-    // Hash password
+    // Check if email exists
+    const { data: existingUser } = await db.User.findOne({
+      email: req.body.email,
+    });
+
+    if (existingUser) {
+      return res.json({ error: "User already exists" });
+    }
+
+    // Hash password and create user
     const hash = await bcrypt.hash(req.body.password, 10);
     userData.password = hash;
     userData.user_profile_url = GProfileURL;
 
-    // Create user
-    const { data: newUser, error } = await db.User.create(userData);
-
-    if (error) {
-      console.error("User creation error:", error);
-      return res.status(400).json({
-        status: false,
-        message: "Failed to create user",
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-
-    if (!newUser) {
-      return res.status(400).json({
-        status: false,
-        message: "Failed to create user - no data returned"
-      });
-    }
-
-    // Success response
-    res.json({ 
-      status: true,
-      message: `${newUser.email} Registered successfully!`,
-      data: {
-        id: newUser.id,
-        email: newUser.email,
-        user_profile_url: newUser.user_profile_url
-      }
-    });
+    const { data: newUser } = await db.User.create(userData);
+    res.json({ status: newUser.email + " Registered!" });
 
   } catch (error) {
-    console.error("Registration Error:", {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-      stack: error.stack
-    });
-
+    console.error("Registration Error:", error);
     res.status(500).json({
       status: false,
       message: "Registration failed",
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      error: error.message
     });
   }
 });
 
 Users.post("/login", async (req, res) => {
   try {
-    // Get user data from database using Supabase syntax
-    const { data: users, error } = await db.User.findOne({
-      email: req.body.email
+    const { data: user } = await db.User.findOne({
+      email: req.body.email,
     });
 
-    // Check for database error
-    if (error) {
-      console.error("Database Error:", error);
-      return res.status(500).json({
-        status: false,
-        message: "Database error occurred",
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-
-    // Check if user exists
-    if (!users || users.length === 0) {
+    if (!user) {
       return res.status(400).json({
         status: false,
         message: "User does not exist"
       });
     }
 
-    const user = users[0];
-
-    // Compare password
     if (bcrypt.compareSync(req.body.password, user.password)) {
-      // Create token
-      const token = jwt.sign(user, SECRET_KEY, {
+      let token = jwt.sign(user, SECRET_KEY, {
         expiresIn: 1440,
       });
-      
-      return res.json({
-        status: true,
-        message: "Login successful",
-        token: token
-      });
+      res.json(token);
     } else {
-      return res.status(401).json({
+      res.status(401).json({
         status: false,
         message: "Invalid password"
       });
     }
   } catch (error) {
     console.error("Login Error:", error);
-    return res.status(500).json({
+    res.status(500).json({
       status: false,
       message: "Login failed",
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      error: error.message
     });
   }
 });
