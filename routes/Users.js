@@ -12,8 +12,9 @@ const nodemailer = require("nodemailer");
 const SECRET_KEY = process.env.SECRET_KEY || "secret";
 console.log("Available models:", Object.keys(db));
 const User = db.User;
-console.log("User model methods:", Object.keys(User));
-console.log("User model type:", typeof User);
+console.log("User model:", User);
+console.log("User model methods:", Object.getOwnPropertyNames(User.__proto__));
+console.log("User model attributes:", Object.keys(User.rawAttributes || {}));
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: "dd3kdc8cr",
@@ -278,24 +279,15 @@ Users.post("/register", async (req, res) => {
 
 Users.post("/login", async (req, res) => {
   try {
-    // Get user data from database using proper Supabase query
-    const { data, error } = await db.User
-      .select('*')
-      .eq('email', req.body.email)
-      .single();
-
-    // Check for database error
-    if (error) {
-      console.error("Database Error:", error);
-      return res.status(500).json({
-        status: false,
-        message: "Database error occurred",
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
+    // Get user data from database using Sequelize
+    const user = await User.findOne({
+      where: {
+        email: req.body.email
+      }
+    });
 
     // Check if user exists
-    if (!data) {
+    if (!user) {
       return res.status(400).json({
         status: false,
         message: "User does not exist"
@@ -303,9 +295,9 @@ Users.post("/login", async (req, res) => {
     }
 
     // Compare password
-    if (bcrypt.compareSync(req.body.password, data.password)) {
+    if (bcrypt.compareSync(req.body.password, user.password)) {
       // Create token
-      const token = jwt.sign(data, SECRET_KEY, {
+      const token = jwt.sign(user.toJSON(), SECRET_KEY, {
         expiresIn: 1440,
       });
       
