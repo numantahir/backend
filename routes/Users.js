@@ -276,34 +276,55 @@ Users.post("/register", async (req, res) => {
 
 Users.post("/login", async (req, res) => {
   try {
-    const { data: user } = await db.User.findOne({
+    // Get user data from database
+    const { data, error } = await db.User.findOne({
       email: req.body.email,
     });
 
-    if (!user) {
+    // Check for database error
+    if (error) {
+      console.error("Database Error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "Database error occurred",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
+    // Check if user exists
+    if (!data || data.length === 0) {
       return res.status(400).json({
         status: false,
         message: "User does not exist"
       });
     }
 
+    const user = data[0]; // Get the first user from the data array
+
+    // Compare password
     if (bcrypt.compareSync(req.body.password, user.password)) {
-      let token = jwt.sign(user, SECRET_KEY, {
+      // Create token
+      const token = jwt.sign(user, SECRET_KEY, {
         expiresIn: 1440,
       });
-      res.json(token);
+      
+      return res.json({
+        status: true,
+        message: "Login successful",
+        token: token
+      });
     } else {
-      res.status(401).json({
+      return res.status(401).json({
         status: false,
         message: "Invalid password"
       });
     }
   } catch (error) {
     console.error("Login Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       status: false,
       message: "Login failed",
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
