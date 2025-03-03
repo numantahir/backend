@@ -200,11 +200,19 @@ Users.post("/register", async (req, res) => {
     };
 
     // Check if email exists
-    const { data: existingUser } = await db.User.findOne({
-      email: req.body.email,
+    const { data: existingUsers, error: findError } = await db.User.findOne({
+      email: req.body.email
     });
 
-    if (existingUser) {
+    if (findError) {
+      return res.status(500).json({
+        status: false,
+        message: "Error checking existing user",
+        error: process.env.NODE_ENV === 'development' ? findError.message : undefined
+      });
+    }
+
+    if (existingUsers && existingUsers.length > 0) {
       return res.status(400).json({ 
         status: false,
         message: "User already exists" 
@@ -279,25 +287,35 @@ Users.post("/register", async (req, res) => {
 
 Users.post("/login", async (req, res) => {
   try {
-    // Get user data from database using Sequelize
-    const user = await User.findOne({
-      where: {
-        email: req.body.email
-      }
+    // Get user data from database using Supabase syntax
+    const { data: users, error } = await db.User.findOne({
+      email: req.body.email
     });
 
+    // Check for database error
+    if (error) {
+      console.error("Database Error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "Database error occurred",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
     // Check if user exists
-    if (!user) {
+    if (!users || users.length === 0) {
       return res.status(400).json({
         status: false,
         message: "User does not exist"
       });
     }
 
+    const user = users[0];
+
     // Compare password
     if (bcrypt.compareSync(req.body.password, user.password)) {
       // Create token
-      const token = jwt.sign(user.toJSON(), SECRET_KEY, {
+      const token = jwt.sign(user, SECRET_KEY, {
         expiresIn: 1440,
       });
       
