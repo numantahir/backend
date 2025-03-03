@@ -695,11 +695,12 @@ Users.put("/update", verifyToken, async (req, res) => {
     } = req.body;
 
     // Check if user exists
-    const user = await db.User.findOne({
-      where: { id: user_id }
-    });
+    const { data: user, error: userError } = await db.User
+      .select('*')
+      .eq('id', user_id)
+      .single();
 
-    if (!user) {
+    if (userError || !user) {
       return res.status(404).json({
         status: false,
         message: "User not found",
@@ -718,9 +719,13 @@ Users.put("/update", verifyToken, async (req, res) => {
     if (cover_image) updatedFields.cover_image = cover_image;
 
     // Update user
-    await db.User.update(updatedFields, {
-      where: { id: user_id }
-    });
+    const { error: updateError } = await db.User
+      .update(updatedFields)
+      .eq('id', user_id);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
 
     // Handle social links update
     if (social_links.length > 0) {
@@ -733,42 +738,43 @@ Users.put("/update", verifyToken, async (req, res) => {
         }
 
         // Check if social link exists
-        const existingLink = await db.UserSocialLinks.findOne({
-          where: {
-            user_id,
-            social_type_id
-          }
-        });
+        const { data: existingLink } = await db.UserSocialLinks
+          .select('id')
+          .eq('user_id', user_id)
+          .eq('social_type_id', social_type_id)
+          .single();
 
         if (existingLink) {
           // Update existing link
-          await db.UserSocialLinks.update({
-            social_link,
-            user_social_status,
-            updated: new Date(),
-          }, {
-            where: { id: existingLink.id }
-          });
+          await db.UserSocialLinks
+            .update({
+              social_link,
+              user_social_status,
+              updated: new Date(),
+            })
+            .eq('id', existingLink.id);
         } else {
           // Create new link
-          await db.UserSocialLinks.create({
-            user_id,
-            social_type_id,
-            social_link,
-            user_social_status
-          });
+          await db.UserSocialLinks
+            .insert([{
+              user_id,
+              social_type_id,
+              social_link,
+              user_social_status
+            }]);
         }
       }
     }
 
     // Fetch final updated user data with social links
-    const finalUser = await db.User.findOne({
-      where: { id: user_id }
-    });
+    const { data: finalUser } = await db.User
+      .select('*')
+      .eq('id', user_id)
+      .single();
 
-    const updatedSocialLinks = await db.UserSocialLinks.findAll({
-      where: { user_id }
-    });
+    const { data: updatedSocialLinks } = await db.UserSocialLinks
+      .select('*')
+      .eq('user_id', user_id);
 
     finalUser.social_links = updatedSocialLinks || [];
 
