@@ -151,7 +151,9 @@ const uploadToCloudinary = async (file, folder) => {
 };
 const verifyToken = (req, res, next) => {
   try {
+    console.log("Headers received:", req.headers);
     const authHeader = req.headers["authorization"];
+    console.log("Auth header:", authHeader);
     
     if (!authHeader) {
       return res.status(401).json({ 
@@ -162,6 +164,7 @@ const verifyToken = (req, res, next) => {
 
     // Check if the header starts with 'Bearer '
     if (!authHeader.startsWith('Bearer ')) {
+      console.log("Invalid header format. Header received:", authHeader);
       return res.status(401).json({ 
         status: false,
         message: "Invalid authorization format. Must start with 'Bearer'" 
@@ -170,6 +173,7 @@ const verifyToken = (req, res, next) => {
 
     // Extract the token (everything after 'Bearer ')
     const token = authHeader.substring(7);
+    console.log("Extracted token:", token);
 
     if (!token) {
       return res.status(401).json({ 
@@ -179,15 +183,29 @@ const verifyToken = (req, res, next) => {
     }
 
     try {
+      // Log the token and secret being used
+      console.log("SECRET_KEY length:", SECRET_KEY.length);
+      console.log("Token length:", token.length);
+      
       // Verify the token
       const decoded = jwt.verify(token, SECRET_KEY);
+      console.log("Successfully decoded token:", {
+        id: decoded.id,
+        email: decoded.email
+      });
+      
       req.user = decoded;
       next();
     } catch (jwtError) {
-      console.log("JWT verification error:", jwtError);
+      console.log("JWT verification error details:", {
+        name: jwtError.name,
+        message: jwtError.message,
+        token: token.substring(0, 10) + '...' // Log first 10 chars of token for debugging
+      });
+      
       return res.status(401).json({ 
         status: false,
-        message: jwtError.message || "Invalid token",
+        message: "Invalid token format or signature",
         error: process.env.NODE_ENV === 'development' ? jwtError.message : undefined
       });
     }
@@ -361,15 +379,18 @@ Users.post("/login", async (req, res) => {
         last_name: user.last_name
       };
 
+      // Generate token without Bearer prefix
       const token = jwt.sign(tokenData, SECRET_KEY, {
         expiresIn: '24h'
       });
       
+      console.log("Generated token:", token.substring(0, 10) + '...'); // Log first 10 chars
+
       return res.json({
         status: true,
         message: "Login successful",
         data: {
-          token: `Bearer ${token}`,
+          token: token, // Send token without Bearer prefix
           user: {
             id: user.id,
             email: user.email,
