@@ -6,7 +6,7 @@ const bcrypt = require("bcrypt");
 const db = require("../models");
 const cloudinary = require("cloudinary").v2;
 const multer = require("multer");
-const { jwtDecode } = require("jwt-decode");
+// const { jwtDecode } = require("jwt-decode");
 const emailConfig = require("../config/emailConfig");
 const nodemailer = require("nodemailer");
 const SECRET_KEY = process.env.SECRET_KEY || "secret";
@@ -430,28 +430,20 @@ Users.post("/resetpassword", verifyToken, async (req, res) => {
 });
 
 
-Users.get("/profile", async (req, res) => {
+Users.get("/profile", verifyToken, async (req, res) => {
   try {
-    const authHeader = req.headers["authorization"];
-    if (!authHeader) {
-      return res.status(401).json({
-        status: false,
-        message: "No token provided"
-      });
-    }
-
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({
-        status: false,
-        message: "Invalid token format"
-      });
-    }
-
-    const decoded = jwtDecode(token);
-    const { data: user } = await db.User.findOne({
-      id: decoded.id
+    // Get user data using the verified user info from middleware
+    const { data: user, error } = await db.User.findOne({
+      id: req.user.id
     });
+
+    if (error) {
+      return res.status(500).json({
+        status: false,
+        message: "Database error occurred",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
 
     if (!user) {
       return res.status(404).json({
@@ -461,24 +453,32 @@ Users.get("/profile", async (req, res) => {
     }
 
     // Get social links with platform info
-    const { data: socialLinks } = await db.UserSocialLinks.findAll({
+    const { data: socialLinks, error: socialError } = await db.UserSocialLinks.findAll({
       user_id: user.id,
       user_social_status: 1
     });
 
-    user.social_links = socialLinks;
+    if (socialError) {
+      console.error("Error fetching social links:", socialError);
+    }
+
+    // Prepare response data
+    const userData = {
+      ...user,
+      social_links: socialLinks || []
+    };
 
     res.json({
       status: true,
       message: "Profile retrieved successfully",
-      data: user,
+      data: userData,
     });
   } catch (error) {
     console.error("Profile Error:", error);
     res.status(500).json({
       status: false,
-      message: "Internal server error",
-      error: error.message,
+      message: "Failed to retrieve profile",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
