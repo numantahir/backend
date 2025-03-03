@@ -15,6 +15,11 @@ const User = db.User;
 console.log("User model:", User);
 console.log("User model methods:", Object.getOwnPropertyNames(User.__proto__));
 console.log("User model attributes:", Object.keys(User.rawAttributes || {}));
+console.log("Database connection:", {
+  isConnected: !!db,
+  models: Object.keys(db),
+  userModel: !!db.User
+});
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: "dd3kdc8cr",
@@ -287,35 +292,55 @@ Users.post("/register", async (req, res) => {
 
 Users.post("/login", async (req, res) => {
   try {
+    console.log("Login attempt for email:", req.body.email);
+
     // Get user data from database using Supabase syntax
-    const { data: users, error } = await db.User.findOne({
+    const result = await db.User.findOne({
       email: req.body.email
     });
 
+    console.log("Database response:", JSON.stringify(result, null, 2));
+
     // Check for database error
-    if (error) {
-      console.error("Database Error:", error);
+    if (result.error) {
+      console.error("Database Error:", result.error);
       return res.status(500).json({
         status: false,
         message: "Database error occurred",
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: process.env.NODE_ENV === 'development' ? result.error.message : undefined
       });
     }
 
-    // Check if user exists
-    if (!users || users.length === 0) {
+    // Check if user exists and handle potential undefined data
+    if (!result.data || result.data.length === 0) {
       return res.status(400).json({
         status: false,
         message: "User does not exist"
       });
     }
 
-    const user = users[0];
+    const user = result.data;
+    console.log("Found user:", { id: user.id, email: user.email });
+
+    if (!user.password) {
+      console.error("User found but password is missing");
+      return res.status(500).json({
+        status: false,
+        message: "Invalid user data"
+      });
+    }
 
     // Compare password
     if (bcrypt.compareSync(req.body.password, user.password)) {
       // Create token
-      const token = jwt.sign(user, SECRET_KEY, {
+      const tokenData = {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name
+      };
+
+      const token = jwt.sign(tokenData, SECRET_KEY, {
         expiresIn: 1440,
       });
       
