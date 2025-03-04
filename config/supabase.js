@@ -26,14 +26,12 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 });
 
 
-const { data, error } = await supabase
-        .from('users')
-        .update({phone: '123456789'})
-        .match({id: 8})
-        .select('*')
-        .single();
-
-      if (error) return { data: null, error: error.message };
+supabase
+  .from('users')
+  .update({ phone: '123456789' })
+  .match({ id: 8 }) 
+  .select('*')
+  .single();
 
 // Test the connection
 supabase.from('users')
