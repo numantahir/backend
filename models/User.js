@@ -57,7 +57,8 @@ module.exports = (supabase) => {
         .update(values)
         .match(where)
         .select('*')
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (error) return { data: null, error: error.message };
       return { data };
