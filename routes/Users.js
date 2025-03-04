@@ -717,7 +717,10 @@ Users.put("/update", verifyToken, async (req, res) => {
     console.log(updatedFields);
     // Update user
 
-    const { data: updatedUser, error:updateError } = await db.User.update({bio: 'testing'}, {id: 2});
+    const { data: updatedUser, error: updateError } = await db.supabase
+  .from('food')
+  .upsert([{id: 2, phone: 11}, {id: 3, phone: '6123321'}]);
+    // const { data: updatedUser, error:updateError } = await db.User.update({bio: 'testing'}, {id: 2});
 
   //   const { data: updatedUser, error: updateError } = await db.supabase
   // .from('users') // Ensure 'User' matches your actual table name
