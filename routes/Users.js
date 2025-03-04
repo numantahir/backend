@@ -719,8 +719,13 @@ Users.put("/update", verifyToken, async (req, res) => {
     const { data: updatedUser, error: updateError } = await db.supabase
   .from('users') // Ensure 'User' matches your actual table name
   .update({phone: '123456789'}) // Object with fields to update
-  .eq( 'id', '8' ); // Correct way to filter records in Supabase
+  .eq( 'id', '8' )
+  .select(); // Correct way to filter records in Supabase
+  console.log('Data:',updatedUser);
+  console.log('Error: ',updateError);
 
+  console.log('Data:',data);
+  console.log('Error: ',error);
     // let { data: updatedUser, error: updateError } = await db.supabase
     //   .from("users")
     //   .update(updatedFields)
@@ -729,7 +734,7 @@ Users.put("/update", verifyToken, async (req, res) => {
       console.log("Stage-7");
     if (updateError) throw updateError;
     console.log("Stage-8");
-    console.log(updatedUser);
+    
     console.log("Final Fields to Update:", updatedFields);
     // Update Social Links if provided
     let socialLinksResults = [];
