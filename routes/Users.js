@@ -3,7 +3,8 @@ const Users = express.Router();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const db = require("../models");
+// const db = require("../models");
+const db = require("../db");
 const cloudinary = require("cloudinary").v2;
 const multer = require("multer");
 // const { jwtDecode } = require("jwt-decode");
@@ -678,34 +679,22 @@ Users.get("/share-profile", async (req, res) => {
 // });
 
 Users.put("/update", verifyToken, async (req, res) => {
-  // Start transaction outside of try blocks
-  const t = await db.sequelize.transaction();
   try {
     const user_id = req.decoded.id;
-    const {
-      first_name,
-      last_name,
-      bio = "",
-      website = "",
-      phone = "",
-      user_profile_url = "",
-      social_links = [],
-      profile_image = "",
-      cover_image = "",
-    } = req.body;
-    // Find the user
-    let user = await User.findOne({ 
-      where: { id: user_id },
-      transaction: t 
-    });
-    if (!user) {
-      await t.rollback();
-      return res.status(404).json({
-        status: false,
-        message: "User not found",
-      });
+    const { first_name, last_name, bio, website, phone, user_profile_url, profile_image, cover_image, social_links } = req.body;
+
+    // Fetch user
+    let { data: user, error } = await db.supabase
+      .from("users")
+      .select("*")
+      .eq("id", user_id)
+      .single();
+
+    if (error || !user) {
+      return res.status(404).json({ status: false, message: "User not found" });
     }
-    // Update user fields if provided
+
+    // Prepare updated fields
     let updatedFields = {};
     if (first_name) updatedFields.first_name = first_name;
     if (last_name) updatedFields.last_name = last_name;
@@ -715,113 +704,80 @@ Users.put("/update", verifyToken, async (req, res) => {
     if (user_profile_url) updatedFields.user_profile_url = user_profile_url;
     if (profile_image) updatedFields.profile_image = profile_image;
     if (cover_image) updatedFields.cover_image = cover_image;
+
     // Update user
-    const updatedUserData = await User.update(updatedFields, {
-      where: { id: user_id },
-      transaction: t,
-    });
-    console.log(updatedUserData);
-    // Handle social links if present
+    let { data: updatedUser, error: updateError } = await db.supabase
+      .from("users")
+      .update(updatedFields)
+      .eq("id", user_id)
+      .select("*")
+      .single();
+
+    if (updateError) throw updateError;
+
+    // Update Social Links if provided
     let socialLinksResults = [];
-    if (social_links.length > 0) {
-      // Validate social links data
+    if (social_links && social_links.length > 0) {
       for (const link of social_links) {
         if (!link.social_type_id || !link.social_link) {
-          await t.rollback();
-          return res.status(400).json({
-            status: false,
-            message: "social_type_id and social_link are required for each social link"
-          });
+          return res.status(400).json({ status: false, message: "Invalid social link data" });
         }
-      }
-      // Process each social link
-      const socialLinksPromises = social_links.map(async (link) => {
-        const { social_type_id, social_link, user_social_status = 1 } = link;
-        // Check if social link already exists
-        const existingLink = await db.user_social_links.findOne({
-          where: {
-            user_id,
-            social_type_id,
-          },
-          transaction: t,
-        });
+
+        // Check if social link exists
+        let { data: existingLink } = await db.supabase
+          .from("user_social_links")
+          .select("*")
+          .eq("user_id", user_id)
+          .eq("social_type_id", link.social_type_id)
+          .single();
+
         if (existingLink) {
           // Update existing link
-          await db.user_social_links.update(
-            {
-              social_link,
-              user_social_status,
-              updated: new Date(),
-            },
-            {
-              where: {
-                id: existingLink.id,
-              },
-              transaction: t,
-            }
-          );
-          return { ...link, action: "updated" };
+          let { data, error } = await db.supabase
+            .from("user_social_links")
+            .update({
+              social_link: link.social_link,
+              user_social_status: link.user_social_status || 1,
+              updated_at: new Date(),
+            })
+            .eq("id", existingLink.id)
+            .select("*")
+            .single();
+
+          if (error) throw error;
+          socialLinksResults.push({ ...link, action: "updated" });
         } else {
-          // Create new link
-          const newLink = await db.user_social_links.create(
-            {
+          // Insert new link
+          let { data, error } = await db.supabase
+            .from("user_social_links")
+            .insert({
               user_id,
-              social_type_id,
-              social_link,
-              user_social_status,
-            },
-            { transaction: t }
-          );
-          return { ...link, action: "created" };
+              social_type_id: link.social_type_id,
+              social_link: link.social_link,
+              user_social_status: link.user_social_status || 1,
+            })
+            .select("*")
+            .single();
+
+          if (error) throw error;
+          socialLinksResults.push({ ...link, action: "created" });
         }
-      });
-      // Wait for all social link operations to complete
-      socialLinksResults = await Promise.all(socialLinksPromises);
+      }
     }
-    // Commit the transaction
-    await t.commit();
-    // Get updated user data with social links
-    const updatedUser = await User.findOne({
-      where: { id: user_id },
-      include: [
-        {
-          model: db.user_social_links,
-          as: "social_links",
-          include: [
-            {
-              model: db.social_media_platforms,
-              as: "social_platform",
-              attributes: ["social_name", "social_icon"],
-            },
-          ],
-        },
-      ],
+
+    // Return response
+    return res.json({
+      status: true,
+      message: "User updated successfully!",
+      data: {
+        user: updatedUser,
+        socialLinksResults,
+      },
     });
-    // Return response based on whether social links were updated
-    if (social_links.length > 0) {
-      return res.json({
-        status: true,
-        message: "User and social links updated successfully!",
-        data: {
-          user: updatedUser,
-          socialLinksResults,
-        },
-      });
-    } else {
-      return res.json({
-        status: true,
-        message: "User updated successfully!",
-        data: updatedUser,
-      });
-    }
+
   } catch (error) {
-    // Rollback transaction on error
-    await t.rollback();
     console.error("Update Error:", error);
-    return res.status(500).json({
-      status: false,
-      message: error.message || "Internal server error",
-    });
+    return res.status(500).json({ status: false, message: "Internal server error" });
   }
 });
 
