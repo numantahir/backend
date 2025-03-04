@@ -156,19 +156,17 @@ const verifyToken = (req, res, next) => {
   try {
     console.log("Headers received:", req.headers);
 
-    // Extract the Authorization header
     const authHeader = req.headers["authorization"];
     console.log("Auth header:", authHeader);
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("Invalid authorization format:", authHeader);
       return res.status(401).json({
         status: false,
         message: "Invalid authorization format. Must start with 'Bearer '",
       });
     }
 
-    // Extract the token and trim any unwanted spaces
+    // Extract and trim the token
     const token = authHeader.substring(7).trim();
     console.log("Extracted Token:", token);
 
@@ -179,45 +177,33 @@ const verifyToken = (req, res, next) => {
       });
     }
 
-    // Ensure SECRET_KEY is available
-    if (!process.env.SECRET_KEY) {
-      console.error("SECRET_KEY is missing from environment variables!");
-      return res.status(500).json({
-        status: false,
-        message: "Server configuration error",
-      });
-    }
-
-    console.log("SECRET_KEY length:", process.env.SECRET_KEY.length);
-    console.log("Token length:", token.length);
-
-    // Decode before verification (to catch malformed tokens early)
-    const decodedPreview = jwt.decode(token, { complete: true });
-    console.log("Decoded token preview:", decodedPreview);
-
-    if (!decodedPreview) {
+    // Check if the token is properly formatted (must have 3 parts)
+    const tokenParts = token.split(".");
+    if (tokenParts.length !== 3) {
+      console.log("Malformed Token:", token);
       return res.status(401).json({
         status: false,
         message: "Malformed JWT token",
       });
     }
 
-    // Verify the token
-    jwt.verify(token, process.env.SECRET_KEY, { algorithms: ["HS256"] }, (err, decoded) => {
-      if (err) {
-        console.log("JWT verification error:", {
-          name: err.name,
-          message: err.message,
-          token: token.substring(0, 10) + "...", // Log first 10 chars of token for debugging
-        });
+    // Decode token without verification to preview its structure
+    const decodedPreview = jwt.decode(token, { complete: true });
+    console.log("Decoded token preview:", decodedPreview);
 
-        return res.status(401).json({
-          status: false,
-          message: "Invalid token format or signature",
-          error: process.env.NODE_ENV === "development" ? err.message : undefined,
-        });
-      }
+    if (!decodedPreview) {
+      return res.status(401).json({
+        status: false,
+        message: "Invalid JWT format",
+      });
+    }
 
+    try {
+      console.log("SECRET_KEY length:", process.env.SECRET_KEY?.length || "undefined");
+
+      // Verify token with explicit algorithm
+      const decoded = jwt.verify(token, process.env.SECRET_KEY, { algorithms: ["HS256"] });
+      
       console.log("Successfully decoded token:", {
         id: decoded.id,
         email: decoded.email,
@@ -225,8 +211,19 @@ const verifyToken = (req, res, next) => {
 
       req.user = decoded;
       next();
-    });
+    } catch (jwtError) {
+      console.log("JWT verification error details:", {
+        name: jwtError.name,
+        message: jwtError.message,
+        token: token.substring(0, 10) + "...", // Show only first 10 characters for debugging
+      });
 
+      return res.status(401).json({
+        status: false,
+        message: "Invalid token format or signature",
+        error: process.env.NODE_ENV === "development" ? jwtError.message : undefined,
+      });
+    }
   } catch (error) {
     console.log("Token verification error:", error);
     return res.status(401).json({
