@@ -725,59 +725,59 @@ Users.put("/update", verifyToken, async (req, res) => {
     if (updateError) {
       throw new Error(updateError.message);
     }
-
+    console.log('User Social Media Account:', social_links.length);
     // Handle social links update
-    if (social_links.length > 0) {
-      for (const link of social_links) {
-        if (!link.social_type_id || !link.social_link) {
-          return res.status(400).json({
-            status: false,
-            message: "social_type_id and social_link are required for each social link"
-          });
-        }
+    // if (social_links.length > 0) {
+    //   for (const link of social_links) {
+    //     if (!link.social_type_id || !link.social_link) {
+    //       return res.status(400).json({
+    //         status: false,
+    //         message: "social_type_id and social_link are required for each social link"
+    //       });
+    //     }
 
-        const { social_type_id, social_link, user_social_status = 1 } = link;
+    //     const { social_type_id, social_link, user_social_status = 1 } = link;
 
-        // Check if social link exists
-        const { data: existingLink, error: findLinkError } = await db.UserSocialLinks.findOne({
-          user_id,
-          social_type_id,
-        });
+    //     // Check if social link exists
+    //     const { data: existingLink, error: findLinkError } = await db.UserSocialLinks.findOne({
+    //       user_id,
+    //       social_type_id,
+    //     });
 
-        if (findLinkError) {
-          console.error("Error finding social link:", findLinkError);
-          continue;
-        }
+    //     if (findLinkError) {
+    //       console.error("Error finding social link:", findLinkError);
+    //       continue;
+    //     }
 
-        if (existingLink) {
-          // Update existing link
-          const { error: socialUpdateError } = await db.UserSocialLinks.update(
-            {
-              social_link,
-              user_social_status,
-              updated: new Date(),
-            },
-            { id: existingLink.id }
-          );
+    //     if (existingLink) {
+    //       // Update existing link
+    //       const { error: socialUpdateError } = await db.UserSocialLinks.update(
+    //         {
+    //           social_link,
+    //           user_social_status,
+    //           updated: new Date(),
+    //         },
+    //         { id: existingLink.id }
+    //       );
 
-          if (socialUpdateError) {
-            console.error("Error updating social link:", socialUpdateError);
-          }
-        } else {
-          // Create new link
-          const { error: socialCreateError } = await db.UserSocialLinks.insert({
-            user_id,
-            social_type_id,
-            social_link,
-            user_social_status,
-          });
+    //       if (socialUpdateError) {
+    //         console.error("Error updating social link:", socialUpdateError);
+    //       }
+    //     } else {
+    //       // Create new link
+    //       const { error: socialCreateError } = await db.UserSocialLinks.insert({
+    //         user_id,
+    //         social_type_id,
+    //         social_link,
+    //         user_social_status,
+    //       });
 
-          if (socialCreateError) {
-            console.error("Error creating social link:", socialCreateError);
-          }
-        }
-      }
-    }
+    //       if (socialCreateError) {
+    //         console.error("Error creating social link:", socialCreateError);
+    //       }
+    //     }
+    //   }
+    // }
 
     // Get updated user data
     const { data: finalUser, error: finalUserError } = await db.User.findOne({
@@ -788,16 +788,16 @@ Users.put("/update", verifyToken, async (req, res) => {
       throw new Error(finalUserError?.message || "Failed to fetch updated user");
     }
 
-    // Get updated social links
-    const { data: updatedSocialLinks, error: socialLinksError } = await db.UserSocialLinks.findAll({
-      user_id: user_id
-    });
+    // // Get updated social links
+    // const { data: updatedSocialLinks, error: socialLinksError } = await db.UserSocialLinks.findAll({
+    //   user_id: user_id
+    // });
 
-    if (socialLinksError) {
-      console.error("Error fetching social links:", socialLinksError);
-    }
+    // if (socialLinksError) {
+    //   console.error("Error fetching social links:", socialLinksError);
+    // }
 
-    finalUser.social_links = updatedSocialLinks || [];
+    // finalUser.social_links = updatedSocialLinks || [];
 
     return res.json({
       status: true,
