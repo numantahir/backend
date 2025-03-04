@@ -678,10 +678,10 @@ Users.get("/share-profile", async (req, res) => {
 // });
 
 Users.put("/update", verifyToken, async (req, res) => {
+  // Start transaction outside of try blocks
+  const t = await db.sequelize.transaction();
   try {
-    console.log("Profile Updating for User ID:", req.user.id);
-    const user_id = req.user.id;
-
+    const user_id = req.decoded.id;
     const {
       first_name,
       last_name,
@@ -693,20 +693,19 @@ Users.put("/update", verifyToken, async (req, res) => {
       profile_image = "",
       cover_image = "",
     } = req.body;
-
-    // Check if user exists
-    const { data: user, error: userError } = await db.User.findOne({
-      id: user_id
+    // Find the user
+    let user = await User.findOne({ 
+      where: { id: user_id },
+      transaction: t 
     });
-
-    if (userError || !user) {
+    if (!user) {
+      await t.rollback();
       return res.status(404).json({
         status: false,
         message: "User not found",
       });
     }
-
-    // Prepare update data only for provided fields
+    // Update user fields if provided
     let updatedFields = {};
     if (first_name) updatedFields.first_name = first_name;
     if (last_name) updatedFields.last_name = last_name;
@@ -716,96 +715,108 @@ Users.put("/update", verifyToken, async (req, res) => {
     if (user_profile_url) updatedFields.user_profile_url = user_profile_url;
     if (profile_image) updatedFields.profile_image = profile_image;
     if (cover_image) updatedFields.cover_image = cover_image;
-
     // Update user
-    const { error: updateError } = await db.User.update(updatedFields, {
-      id: user_id
+    const updatedUserData = await User.update(updatedFields, {
+      where: { id: user_id },
+      transaction: t,
     });
-
-    if (updateError) {
-      throw new Error(updateError.message);
+    console.log(updatedUserData);
+    // Handle social links if present
+    let socialLinksResults = [];
+    if (social_links.length > 0) {
+      // Validate social links data
+      for (const link of social_links) {
+        if (!link.social_type_id || !link.social_link) {
+          await t.rollback();
+          return res.status(400).json({
+            status: false,
+            message: "social_type_id and social_link are required for each social link"
+          });
+        }
+      }
+      // Process each social link
+      const socialLinksPromises = social_links.map(async (link) => {
+        const { social_type_id, social_link, user_social_status = 1 } = link;
+        // Check if social link already exists
+        const existingLink = await db.user_social_links.findOne({
+          where: {
+            user_id,
+            social_type_id,
+          },
+          transaction: t,
+        });
+        if (existingLink) {
+          // Update existing link
+          await db.user_social_links.update(
+            {
+              social_link,
+              user_social_status,
+              updated: new Date(),
+            },
+            {
+              where: {
+                id: existingLink.id,
+              },
+              transaction: t,
+            }
+          );
+          return { ...link, action: "updated" };
+        } else {
+          // Create new link
+          const newLink = await db.user_social_links.create(
+            {
+              user_id,
+              social_type_id,
+              social_link,
+              user_social_status,
+            },
+            { transaction: t }
+          );
+          return { ...link, action: "created" };
+        }
+      });
+      // Wait for all social link operations to complete
+      socialLinksResults = await Promise.all(socialLinksPromises);
     }
-    console.log('User Social Media Account:', social_links.length);
-    // Handle social links update
-    // if (social_links.length > 0) {
-    //   for (const link of social_links) {
-    //     if (!link.social_type_id || !link.social_link) {
-    //       return res.status(400).json({
-    //         status: false,
-    //         message: "social_type_id and social_link are required for each social link"
-    //       });
-    //     }
-
-    //     const { social_type_id, social_link, user_social_status = 1 } = link;
-
-    //     // Check if social link exists
-    //     const { data: existingLink, error: findLinkError } = await db.UserSocialLinks.findOne({
-    //       user_id,
-    //       social_type_id,
-    //     });
-
-    //     if (findLinkError) {
-    //       console.error("Error finding social link:", findLinkError);
-    //       continue;
-    //     }
-
-    //     if (existingLink) {
-    //       // Update existing link
-    //       const { error: socialUpdateError } = await db.UserSocialLinks.update(
-    //         {
-    //           social_link,
-    //           user_social_status,
-    //           updated: new Date(),
-    //         },
-    //         { id: existingLink.id }
-    //       );
-
-    //       if (socialUpdateError) {
-    //         console.error("Error updating social link:", socialUpdateError);
-    //       }
-    //     } else {
-    //       // Create new link
-    //       const { error: socialCreateError } = await db.UserSocialLinks.insert({
-    //         user_id,
-    //         social_type_id,
-    //         social_link,
-    //         user_social_status,
-    //       });
-
-    //       if (socialCreateError) {
-    //         console.error("Error creating social link:", socialCreateError);
-    //       }
-    //     }
-    //   }
-    // }
-
-    // Get updated user data
-    const { data: finalUser, error: finalUserError } = await db.User.findOne({
-      id: user_id
+    // Commit the transaction
+    await t.commit();
+    // Get updated user data with social links
+    const updatedUser = await User.findOne({
+      where: { id: user_id },
+      include: [
+        {
+          model: db.user_social_links,
+          as: "social_links",
+          include: [
+            {
+              model: db.social_media_platforms,
+              as: "social_platform",
+              attributes: ["social_name", "social_icon"],
+            },
+          ],
+        },
+      ],
     });
-
-    if (finalUserError || !finalUser) {
-      throw new Error(finalUserError?.message || "Failed to fetch updated user");
+    // Return response based on whether social links were updated
+    if (social_links.length > 0) {
+      return res.json({
+        status: true,
+        message: "User and social links updated successfully!",
+        data: {
+          user: updatedUser,
+          socialLinksResults,
+        },
+      });
+    } else {
+      return res.json({
+        status: true,
+        message: "User updated successfully!",
+        data: updatedUser,
+      });
     }
-
-    // // Get updated social links
-    // const { data: updatedSocialLinks, error: socialLinksError } = await db.UserSocialLinks.findAll({
-    //   user_id: user_id
-    // });
-
-    // if (socialLinksError) {
-    //   console.error("Error fetching social links:", socialLinksError);
-    // }
-
-    // finalUser.social_links = updatedSocialLinks || [];
-
-    return res.json({
-      status: true,
-      message: "User updated successfully!",
-      data: finalUser
-    });
-
   } catch (error) {
+    // Rollback transaction on error
+    await t.rollback();
     console.error("Update Error:", error);
     return res.status(500).json({
       status: false,
