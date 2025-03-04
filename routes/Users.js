@@ -716,12 +716,15 @@ Users.put("/update", verifyToken, async (req, res) => {
     console.log("Stage-6");
     console.log(updatedFields);
     // Update user
-    const { data: updatedUser, error: updateError } = await db.supabase
-  .from('users') // Ensure 'User' matches your actual table name
-  .update({phone: '123456789'}) // Object with fields to update
-  .eq('id', 8)
-  .select('*') // Correct way to filter records in Supabase
-  .single();
+
+    const { data: updatedUser, error:updateError } = await db.User.update({phone: '123456789'}, {id: 8});
+
+  //   const { data: updatedUser, error: updateError } = await db.supabase
+  // .from('users') // Ensure 'User' matches your actual table name
+  // .update({phone: '123456789'}) // Object with fields to update
+  // .eq('id', 8)
+  // .select('*') // Correct way to filter records in Supabase
+  // .single();
 
   
   
