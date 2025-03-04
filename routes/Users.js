@@ -164,17 +164,27 @@ const verifyToken = (req, res, next) => {
     }
 
     // Check if the header starts with 'Bearer '
-    if (!authHeader.startsWith('Bearer ')) {
-      console.log("Invalid header format. Header received:", authHeader);
+    // if (!authHeader.startsWith('Bearer ')) {
+    //   console.log("Invalid header format. Header received:", authHeader);
+    //   return res.status(401).json({ 
+    //     status: false,
+    //     message: "Invalid authorization format. Must start with 'Bearer'" 
+    //   });
+    // }
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ 
         status: false,
-        message: "Invalid authorization format. Must start with 'Bearer'" 
+        message: "Invalid authorization format. Must start with 'Bearer '" 
       });
     }
+    
+    const token = authHeader.substring(7).trim();
+    console.log("Extracted Token:", token);
 
     // Extract the token (everything after 'Bearer ')
-    const token = authHeader.substring(7);
-    console.log("Extracted token:", token);
+    // const token = authHeader.substring(7);
+    // console.log("Extracted token:", token);
 
     if (!token) {
       return res.status(401).json({ 
