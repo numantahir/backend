@@ -55,7 +55,10 @@ module.exports = (supabase) => {
       const { data, error } = await supabase
         .from('users')
         .update({bio: 'Update from code'})
-        .match({id: 2});
+        .match({id: 2})
+        .select('*')
+        .single();
+        
         // .select('*');
         // .order('id', { ascending: true })
         // .limit(1)
