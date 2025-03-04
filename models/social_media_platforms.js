@@ -33,12 +33,10 @@ module.exports = (supabase) => {
     findAll: async (where = {}) => {
       const { data, error } = await supabase
         .from('social_media_platforms')
-        .select(`
-          *,
-          user_links:user_social_links(*)
-        `)
+        .select(`*`)
         .match(where);
       if (error) throw error;
+      // console.log('>>>>>>>', data);
       return data;
     }
   };

@@ -532,12 +532,67 @@ Users.get("/share-profile", async (req, res) => {
         message: "Profile URL is required"
       });
     }
+    
+    // const { data: user } = await db.User.findOne({
+    //   user_profile_url: profileUrl
+    // });
 
-    const { data: user } = await db.User.findOne({
-      user_profile_url: profileUrl
-    });
+//     const { data: users, error } = await db.supabase
+//     .from("users")
+//     .select(`
+//       * ,
+//       social_links:user_social_links(
+//         * ,
+//         platform:social_media_platforms(*)
+//       )
+//     `)
+//     .eq("user_profile_url", profileUrl); // No .single() or .maybeSingle()
 
-    if (!user) {
+// if (error) {
+//     console.error("Supabase Error:", error);
+// } else {
+//     console.log("Users Found:", users); // Check if multiple users are returned
+// }
+
+
+// Debug profileUrl before making the query
+console.log("Received profileUrl:", profileUrl);
+
+if (!profileUrl) {
+    console.error("Error: profileUrl is undefined or null.");
+    return;
+}
+
+// Convert profileUrl to a number if it's stored as bigint in the database
+const parsedProfileUrl = isNaN(profileUrl) ? profileUrl : Number(profileUrl);
+
+console.log("Parsed profileUrl for query:", parsedProfileUrl);
+
+const { data: users, error } = await db.supabase
+    .from("users")
+    .select(`
+      * ,
+      social_links:user_social_links(
+        * ,
+        platform:social_media_platforms(*)
+      )
+    `)
+    .eq("user_profile_url", parsedProfileUrl);
+
+if (error) {
+    console.error("Supabase Error:", error);
+    return;
+}
+
+console.log("Users Found:", users);
+
+
+
+
+
+    console.log(profileUrl);
+    console.log(users);
+    if (!users) {
       return res.status(404).json({
         status: false,
         message: "User does not exist",
@@ -545,16 +600,28 @@ Users.get("/share-profile", async (req, res) => {
     }
 
     // Get social links
-    const { data: socialLinks } = await db.UserSocialLinks.findAll({
-      user_id: user.id
-    });
+    // const { data: socialLinks } = await db.UserSocialLinks.findAll({
+    //   user_id: users.id
+    // });
 
-    user.social_links = socialLinks.length > 0 ? socialLinks : null;
+    const { data: socialLinks } = await db.supabase
+    .from('user_social_links')
+    .select(`
+      *,
+      user:users(*),
+      platform:social_media_platforms(*)
+    `)
+    .eq("user_id", users.id);
+
+
+
+    // console.log('SocialLinks Workin..?', socialLinks);
+    // users.social_links = socialLinks.length > 0 ? socialLinks : null;
 
     res.json({
       status: true,
       message: "Profile retrieved successfully",
-      data: user,
+      data: users,
     });
   } catch (error) {
     console.error("Profile Error:", error);
@@ -680,23 +747,17 @@ Users.get("/share-profile", async (req, res) => {
 
 Users.put("/update", verifyToken, async (req, res) => {
   try {
-    console.log("Profile Updating-------------------------------------");
-    console.log("Profile Updating-------------------------------------", req.user.id);
-    console.log("Stage-1");
     const user_id = req.user.id;
     const { first_name, last_name, bio, website, phone, user_profile_url, profile_image, cover_image, social_links } = req.body;
-    console.log("Stage-2");
     // Fetch user
     let { data: user, error } = await db.supabase
       .from("users")
       .select("*")
       .eq("id", user_id)
       .single();
-      console.log("Stage-3");
     if (error || !user) {
       return res.status(404).json({ status: false, message: "User not found" });
     }
-    console.log("Stage-4");
 
     // Prepare updated fields
     let updatedFields = {};
@@ -708,42 +769,14 @@ Users.put("/update", verifyToken, async (req, res) => {
     if (user_profile_url) updatedFields.user_profile_url = user_profile_url;
     if (profile_image) updatedFields.profile_image = profile_image;
     if (cover_image) updatedFields.cover_image = cover_image;
-    console.log("Stage-5");
     // Ensure there is at least one field to update
     if (Object.keys(updatedFields).length === 0) {
       return res.status(400).json({ status: false, message: "No fields provided for update" });
     }
-    console.log("Stage-6");
-    console.log(updatedFields);
     // Update user
-
-    const { data: updatedUser, error: updateError } = await db.supabase
-  .from('users')
-  .upsert([{id: 2, phone: '111232', email: 'numan@testing.com'}, {id: 3, phone: '6123321', email: 'yellow@gmail.com'}]);
-    // const { data: updatedUser, error:updateError } = await db.User.update({bio: 'testing'}, {id: 2});
-
-  //   const { data: updatedUser, error: updateError } = await db.supabase
-  // .from('users') // Ensure 'User' matches your actual table name
-  // .update({phone: '123456789'}) // Object with fields to update
-  // .eq('id', 8)
-  // .select('*') // Correct way to filter records in Supabase
-  // .single();
-
-  
-  
-  console.log('Data:',updatedUser);
-  console.log('Error: ',updateError);
-
-    // let { data: updatedUser, error: updateError } = await db.supabase
-    //   .from("users")
-    //   .update(updatedFields)
-    //   .eq("id", user_id);
-      // .select("*"); // Remove .single()
-      console.log("Stage-7");
+    const { data: updatedUser, error:updateError } = await db.User.update(updatedFields, {id: user_id});
     if (updateError) throw updateError;
-    console.log("Stage-8");
     
-    console.log("Final Fields to Update:", updatedFields);
     // Update Social Links if provided
     let socialLinksResults = [];
     if (social_links && social_links.length > 0) {
@@ -767,7 +800,7 @@ Users.put("/update", verifyToken, async (req, res) => {
             .update({
               social_link: link.social_link,
               user_social_status: link.user_social_status || 1,
-              updated_at: new Date(),
+              updated: new Date(),
             })
             .eq("id", existingLink.id)
             .select("*");
@@ -816,13 +849,15 @@ Users.put(
   upload.single("image"),
   async (req, res) => {
     try {
-      const user_id = req.decoded.id;
+      const user_id = req.user.id;
       const { image_type } = req.body;
       // Find the user
-      let user = await User.findOne({ where: { id: user_id } });
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
+      let { data: user, error } = await db.supabase
+      .from("users").select("*").eq("id", user_id).single();
+    if (error || !user) {
+      return res.status(404).json({ status: false, message: "User not found" });
+    }
+
       if (!["profile_image", "cover_image"].includes(image_type)) {
         return res.status(400).json({
           status: false,

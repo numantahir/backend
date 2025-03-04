@@ -108,11 +108,49 @@ router.post("/add-platform", verifyToken, async (req, res) => {
 
 router.get("/platforms", verifyToken, async (req, res) => {
   try {
-    const { data: platforms } = await SocialMediaPlatforms.findAll();
-    res.json({
-      message: "Social Media Platforms Fetched successfully",
-      data: platforms
-    });
+
+    let { data: socialLinks, error } = await db.supabase
+    .from("user_social_links")
+    .select("id, social_link, user_social_status, created, updated, social_media_platforms: social_type_id(*)")
+    .eq("user_id", userId); // Assuming userId is the parameter passed
+
+    if (error) {
+      return res.status(500).json({ status: false, message: "Database error", error });
+    }
+
+    // If no records are found for the user, return all user_social_links
+    if (!socialLinks || socialLinks.length === 0) {
+      let { data: allSocialLinks, error: allError } = await db.supabase
+        .from("user_social_links")
+        .select("id, social_link, user_social_status, created, updated, social_media_platforms: social_type_id(*)");
+
+      if (allError) {
+        return res.status(500).json({ status: false, message: "Database error", error: allError });
+      }
+
+      return res.status(200).json({ status: true, data: allSocialLinks });
+    }
+
+    // If records exist for the given user_id, return them
+    return res.status(200).json({ status: true, data: socialLinks });
+
+
+
+    // let { data: platforms, error } = await db.supabase
+    //   .from("social_media_platforms")
+    //   .select("*")
+    //   .match({});
+    //   // console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ", platforms);
+    // if (error) {
+    //   return res.status(404).json({ status: false, message: "User not found" });
+    // }
+
+    // // const { data: platforms } = await SocialMediaPlatforms.findAll();
+    // // console.log('Social Media Platform: --->>>> ', platforms);
+    // res.json({
+    //   message: "Social Media Platforms Fetched successfully",
+    //   data: platforms
+    // });
   } catch (error) {
     console.error("Social Media Error:", error);
     res.status(500).json({ error: "Internal server error" });

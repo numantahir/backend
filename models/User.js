@@ -84,16 +84,10 @@ module.exports = (supabase) => {
     // Update user
     update: async (values, where) => {
       const { data, error } = await supabase
-        .from(TABLES.USERS)
+        .from('users')
         .update(values)
         .match(where)
-        .select(`
-          *,
-          social_links:${TABLES.USER_SOCIAL_LINKS}(
-            *,
-            platform:${TABLES.SOCIAL_MEDIA_PLATFORMS}(*)
-          )
-        `)
+        .select(`*`)
         .single();
 
       if (error) throw error;
