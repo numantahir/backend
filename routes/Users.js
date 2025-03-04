@@ -724,6 +724,8 @@ Users.put("/update", verifyToken, async (req, res) => {
       console.log("Stage-7");
     if (updateError) throw updateError;
     console.log("Stage-8");
+    console.log(updatedUser);
+    console.log("Final Fields to Update:", updatedFields);
     // Update Social Links if provided
     let socialLinksResults = [];
     if (social_links && social_links.length > 0) {
