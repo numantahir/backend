@@ -716,10 +716,12 @@ Users.put("/update", verifyToken, async (req, res) => {
     console.log("Stage-6");
     console.log(updatedFields);
     // Update user
-    let { data: updatedUser, error: updateError } = await db.supabase
-      .from("users")
-      .update(updatedFields)
-      .eq("id", user_id);
+    const { data: updatedUser, error: updateError } = await db.User.update(updatedFields).eq('id', user_id); 
+
+    // let { data: updatedUser, error: updateError } = await db.supabase
+    //   .from("users")
+    //   .update(updatedFields)
+    //   .eq("id", user_id);
       // .select("*"); // Remove .single()
       console.log("Stage-7");
     if (updateError) throw updateError;
