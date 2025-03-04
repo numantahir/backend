@@ -460,7 +460,7 @@ Users.post("/login", async (req, res) => {
         expiresIn: '24h'
       });
       
-      console.log("Generated token:", token.substring(0, 10) + '...'); // Log first 10 chars
+      console.log("Generated token:", token); // Log first 10 chars
 
       return res.json({
         status: true,
