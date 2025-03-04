@@ -724,8 +724,6 @@ Users.put("/update", verifyToken, async (req, res) => {
   console.log('Data:',updatedUser);
   console.log('Error: ',updateError);
 
-  console.log('Data:',data);
-  console.log('Error: ',error);
     // let { data: updatedUser, error: updateError } = await db.supabase
     //   .from("users")
     //   .update(updatedFields)
