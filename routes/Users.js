@@ -714,7 +714,7 @@ Users.put("/update", verifyToken, async (req, res) => {
       return res.status(400).json({ status: false, message: "No fields provided for update" });
     }
     console.log("Stage-6");
-
+    console.log(updatedFields);
     // Update user
     let { data: updatedUser, error: updateError } = await db.supabase
       .from("users")
