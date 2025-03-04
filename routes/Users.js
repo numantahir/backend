@@ -155,81 +155,62 @@ const uploadToCloudinary = async (file, folder) => {
 const verifyToken = (req, res, next) => {
   try {
     console.log("Headers received:", req.headers);
-
+    
     const authHeader = req.headers["authorization"];
-    console.log("Auth header:", authHeader);
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        status: false,
-        message: "Invalid authorization format. Must start with 'Bearer '",
+      return res.status(401).json({ 
+        status: false, 
+        message: "Invalid authorization format. Must start with 'Bearer '" 
       });
     }
 
-    // Extract and trim the token
-    const token = authHeader.substring(7).trim();
+    let token = authHeader.substring(7).trim(); // Extract the token part
+
+    if (token.startsWith("{") || token.startsWith("[")) {
+      console.error("Token is an object, not a string! Fix frontend.");
+      return res.status(400).json({ status: false, message: "Invalid token format" });
+    }
+
     console.log("Extracted Token:", token);
 
     if (!token) {
-      return res.status(401).json({
-        status: false,
-        message: "No token provided",
+      return res.status(401).json({ 
+        status: false, 
+        message: "No token provided" 
       });
     }
 
-    // Check if the token is properly formatted (must have 3 parts)
-    const tokenParts = token.split(".");
-    if (tokenParts.length !== 3) {
-      console.log("Malformed Token:", token);
-      return res.status(401).json({
-        status: false,
-        message: "Malformed JWT token",
+    // Ensure SECRET_KEY is set
+    const secretKey = process.env.SECRET_KEY;
+    if (!secretKey) {
+      console.error("SECRET_KEY is not defined!");
+      return res.status(500).json({ 
+        status: false, 
+        message: "Internal server error: SECRET_KEY missing" 
       });
     }
 
-    // Decode token without verification to preview its structure
-    const decodedPreview = jwt.decode(token, { complete: true });
-    console.log("Decoded token preview:", decodedPreview);
-
-    if (!decodedPreview) {
-      return res.status(401).json({
-        status: false,
-        message: "Invalid JWT format",
-      });
-    }
-
+    // Verify the token
     try {
-      console.log("SECRET_KEY length:", process.env.SECRET_KEY?.length || "undefined");
-
-      // Verify token with explicit algorithm
-      const decoded = jwt.verify(token, process.env.SECRET_KEY, { algorithms: ["HS256"] });
+      const decoded = jwt.verify(token, secretKey);
+      console.log("Decoded Token:", decoded);
       
-      console.log("Successfully decoded token:", {
-        id: decoded.id,
-        email: decoded.email,
-      });
-
       req.user = decoded;
       next();
     } catch (jwtError) {
-      console.log("JWT verification error details:", {
-        name: jwtError.name,
-        message: jwtError.message,
-        token: token.substring(0, 10) + "...", // Show only first 10 characters for debugging
-      });
-
-      return res.status(401).json({
-        status: false,
-        message: "Invalid token format or signature",
-        error: process.env.NODE_ENV === "development" ? jwtError.message : undefined,
+      console.error("JWT verification failed:", jwtError.message);
+      return res.status(401).json({ 
+        status: false, 
+        message: "Malformed JWT token",
+        error: process.env.NODE_ENV === 'development' ? jwtError.message : undefined
       });
     }
   } catch (error) {
-    console.log("Token verification error:", error);
-    return res.status(401).json({
-      status: false,
+    console.error("Token verification error:", error);
+    return res.status(500).json({ 
+      status: false, 
       message: "Token verification failed",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
