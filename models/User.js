@@ -7,21 +7,59 @@ module.exports = (supabase) => {
     // Create a new user
     create: async (userData) => {
       try {
-        const { data, error } = await supabase
+        // First insert the user
+        const { data: insertedData, error: insertError } = await supabase
           .from(TABLES.USERS)
-          .insert([userData])
+          .insert([userData]);
+
+        if (insertError) throw insertError;
+
+        // Then fetch the created user
+        const { data: user, error: fetchError } = await supabase
+          .from(TABLES.USERS)
           .select('*')
+          .eq('email', userData.email)
           .single();
 
-        if (error) throw error;
-        return { data };
+        if (fetchError) throw fetchError;
+
+        return { data: user };
       } catch (error) {
-        return { data: null, error: error.message };
+        if (error.code === 'PGRST116') {
+          return { data: null, error: new Error('User creation failed') };
+        }
+        throw error;
       }
     },
 
-    // Find user by ID
+    // Find user by id with relationships
     findByPk: async (id) => {
+      const { data, error } = await supabase
+        .from(TABLES.USERS)
+        .select(`
+          *,
+          social_links:${TABLES.USER_SOCIAL_LINKS}(
+            *,
+            platform:${TABLES.SOCIAL_MEDIA_PLATFORMS}(*)
+          ),
+          saved_profiles:${TABLES.USER_SAVE_PROFILES}(
+            saved_user:${TABLES.USERS}!profile_id(*)
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return { data: null };
+        }
+        throw error;
+      }
+      return { data };
+    },
+
+    // Find user by criteria
+    findOne: async (where) => {
       const { data, error } = await supabase
         .from(TABLES.USERS)
         .select(`
@@ -31,40 +69,34 @@ module.exports = (supabase) => {
             platform:${TABLES.SOCIAL_MEDIA_PLATFORMS}(*)
           )
         `)
-        .eq('id', id)
-        .single();
-
-      if (error) return { data: null, error: error.message };
-      return { data };
-    },
-
-    // Find user by criteria
-    findOne: async (where) => {
-      const { data, error } = await supabase
-        .from(TABLES.USERS)
-        .select('*')
         .match(where)
         .single();
 
-      if (error) return { data: null, error: error.message };
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return { data: null };
+        }
+        throw error;
+      }
       return { data };
     },
 
     // Update user
     update: async (values, where) => {
       const { data, error } = await supabase
-        .from('users')
-        .update({bio: 'Update from code'})
-        .match({id: 2})
-        .select('*')
+        .from(TABLES.USERS)
+        .update(values)
+        .match(where)
+        .select(`
+          *,
+          social_links:${TABLES.USER_SOCIAL_LINKS}(
+            *,
+            platform:${TABLES.SOCIAL_MEDIA_PLATFORMS}(*)
+          )
+        `)
         .single();
-        
-        // .select('*');
-        // .order('id', { ascending: true })
-        // .limit(1)
-        // .maybeSingle();
 
-      if (error) return { data: null, error: error.message };
+      if (error) throw error;
       return { data };
     },
 
@@ -75,9 +107,19 @@ module.exports = (supabase) => {
         .delete()
         .match(where);
 
-      if (error) return { success: false, error: error.message };
-      return { success: true };
+      if (error) throw error;
+      return true;
     }
+  };
+
+  // Define associations
+  User.associate = (models) => {
+    // These are now handled through Supabase's foreign key relationships
+    // but we keep the associations for reference
+    User.hasMany = (model, options) => {
+      // This is now just for documentation
+      return;
+    };
   };
 
   return User;
