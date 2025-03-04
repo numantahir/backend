@@ -56,10 +56,10 @@ module.exports = (supabase) => {
         .from('users')
         .update({bio: 'testing'})
         .match({id: 2})
-        .select('*')
-        .order('id', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .select('*');
+        // .order('id', { ascending: true })
+        // .limit(1)
+        // .maybeSingle();
 
       if (error) return { data: null, error: error.message };
       return { data };
