@@ -716,7 +716,10 @@ Users.put("/update", verifyToken, async (req, res) => {
     console.log("Stage-6");
     console.log(updatedFields);
     // Update user
-    const { data: updatedUser, error: updateError } = await db.User.update(updatedFields).eq('id', user_id); 
+    const { data: updatedUser, error: updateError } = await db
+  .from('User') // Ensure 'User' matches your actual table name
+  .update(updatedFields) // Object with fields to update
+  .match({ id: user_id }); // Correct way to filter records in Supabase
 
     // let { data: updatedUser, error: updateError } = await db.supabase
     //   .from("users")
