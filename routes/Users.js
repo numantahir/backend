@@ -718,10 +718,9 @@ Users.put("/update", verifyToken, async (req, res) => {
     if (cover_image) updatedFields.cover_image = cover_image;
 
     // Update user
-    const { error: updateError } = await db.User.update(
-      updatedFields,
-      { id: user_id }
-    );
+    const { error: updateError } = await db.User.update(updatedFields, {
+      id: user_id
+    });
 
     if (updateError) {
       throw new Error(updateError.message);
@@ -766,7 +765,7 @@ Users.put("/update", verifyToken, async (req, res) => {
           }
         } else {
           // Create new link
-          const { error: socialCreateError } = await db.UserSocialLinks.create({
+          const { error: socialCreateError } = await db.UserSocialLinks.insert({
             user_id,
             social_type_id,
             social_link,
@@ -785,8 +784,8 @@ Users.put("/update", verifyToken, async (req, res) => {
       id: user_id
     });
 
-    if (finalUserError) {
-      throw new Error(finalUserError.message);
+    if (finalUserError || !finalUser) {
+      throw new Error(finalUserError?.message || "Failed to fetch updated user");
     }
 
     // Get updated social links
