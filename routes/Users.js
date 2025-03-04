@@ -719,7 +719,7 @@ Users.put("/update", verifyToken, async (req, res) => {
     const { data: updatedUser, error: updateError } = await db.supabase
   .from('users') // Ensure 'User' matches your actual table name
   .update({phone: '123456789'}) // Object with fields to update
-  .eq( 'id', '8' )
+  .eq( 'id', 8 )
   .select(); // Correct way to filter records in Supabase
   console.log('Data:',updatedUser);
   console.log('Error: ',updateError);
