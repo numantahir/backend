@@ -720,6 +720,7 @@ Users.put("/update", verifyToken, async (req, res) => {
     const { data: updatedUser, error: updateError } = await db.supabase
   .from('users')
   .upsert([{id: 2, phone: '111232', email: 'numan@testing.com'}, {id: 3, phone: '6123321', email: 'yellow@gmail.com'}]);
+  
     // const { data: updatedUser, error:updateError } = await db.User.update({bio: 'testing'}, {id: 2});
 
   //   const { data: updatedUser, error: updateError } = await db.supabase
