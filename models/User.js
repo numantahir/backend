@@ -53,9 +53,9 @@ module.exports = (supabase) => {
     // Update user
     update: async (values, where) => {
       const { data, error } = await supabase
-        .from(TABLES.USERS)
-        .update(values)
-        .match(where)
+        .from('users')
+        .update({bio: 'testing'})
+        .match({id: 2})
         .select('*')
         .order('id', { ascending: true })
         .limit(1)
