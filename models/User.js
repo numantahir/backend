@@ -57,6 +57,7 @@ module.exports = (supabase) => {
         .update(values)
         .match(where)
         .select('*')
+        .order('id', { ascending: true })
         .limit(1)
         .maybeSingle();
 
