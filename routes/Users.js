@@ -680,21 +680,23 @@ Users.get("/share-profile", async (req, res) => {
 
 Users.put("/update", verifyToken, async (req, res) => {
   try {
-        console.log('Profile Updating-------------------------------------');
-     console.log('Profile Updating-------------------------------------', req.user.id);
+    console.log("Profile Updating-------------------------------------");
+    console.log("Profile Updating-------------------------------------", req.user.id);
+    console.log("Stage-1");
     const user_id = req.user.id;
     const { first_name, last_name, bio, website, phone, user_profile_url, profile_image, cover_image, social_links } = req.body;
-
+    console.log("Stage-2");
     // Fetch user
     let { data: user, error } = await db.supabase
       .from("users")
       .select("*")
       .eq("id", user_id)
       .single();
-
+      console.log("Stage-3");
     if (error || !user) {
       return res.status(404).json({ status: false, message: "User not found" });
     }
+    console.log("Stage-4");
 
     // Prepare updated fields
     let updatedFields = {};
@@ -706,17 +708,22 @@ Users.put("/update", verifyToken, async (req, res) => {
     if (user_profile_url) updatedFields.user_profile_url = user_profile_url;
     if (profile_image) updatedFields.profile_image = profile_image;
     if (cover_image) updatedFields.cover_image = cover_image;
+    console.log("Stage-5");
+    // Ensure there is at least one field to update
+    if (Object.keys(updatedFields).length === 0) {
+      return res.status(400).json({ status: false, message: "No fields provided for update" });
+    }
+    console.log("Stage-6");
 
     // Update user
     let { data: updatedUser, error: updateError } = await db.supabase
       .from("users")
       .update(updatedFields)
       .eq("id", user_id)
-      .select("*")
-      .single();
-
+      .select("*"); // Remove .single()
+      console.log("Stage-7");
     if (updateError) throw updateError;
-
+    console.log("Stage-8");
     // Update Social Links if provided
     let socialLinksResults = [];
     if (social_links && social_links.length > 0) {
@@ -743,8 +750,7 @@ Users.put("/update", verifyToken, async (req, res) => {
               updated_at: new Date(),
             })
             .eq("id", existingLink.id)
-            .select("*")
-            .single();
+            .select("*");
 
           if (error) throw error;
           socialLinksResults.push({ ...link, action: "updated" });
@@ -758,8 +764,7 @@ Users.put("/update", verifyToken, async (req, res) => {
               social_link: link.social_link,
               user_social_status: link.user_social_status || 1,
             })
-            .select("*")
-            .single();
+            .select("*");
 
           if (error) throw error;
           socialLinksResults.push({ ...link, action: "created" });
@@ -782,6 +787,7 @@ Users.put("/update", verifyToken, async (req, res) => {
     return res.status(500).json({ status: false, message: "Internal server error" });
   }
 });
+
 
 
 Users.put(
