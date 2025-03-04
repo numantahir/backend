@@ -13,7 +13,7 @@ const nodemailer = require("nodemailer");
 const SECRET_KEY = process.env.SECRET_KEY || "secret";
 console.log("Available models:", Object.keys(db));
 const User = db.User;
-const jwt = require("jsonwebtoken");
+// const jwt = require("jsonwebtoken");
 console.log("User model:", User);
 console.log("User model methods:", Object.getOwnPropertyNames(User.__proto__));
 console.log("User model attributes:", Object.keys(User.rawAttributes || {}));
