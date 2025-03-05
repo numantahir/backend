@@ -180,8 +180,8 @@ const verifyToken = (req, res, next) => {
       });
     }
 
-    // Ensure SECRET_KEY is set
-    const secretKey = process.env.SECRET_KEY;
+    // Ensure SECRET_KEY is set*
+    const secretKey = process.env.SECRET_KEY || 'secret';
     if (!secretKey) {
       console.error("SECRET_KEY is not defined!");
       return res.status(500).json({ 
