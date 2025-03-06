@@ -158,6 +158,7 @@ const verifyToken = (req, res, next) => {
     
     const authHeader = req.headers["authorization"];
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log('Section A: AuthHeader ->', authHeader);
       return res.status(401).json({ 
         status: false, 
         message: "Invalid authorization format. Must start with 'Bearer '" 
@@ -167,6 +168,8 @@ const verifyToken = (req, res, next) => {
     let token = authHeader.substring(7).trim(); // Extract the token part
 
     if (token.startsWith("{") || token.startsWith("[")) {
+      console.log('Section B: AuthHeader ->', authHeader);
+      console.log('Section A: Token ->', token);
       console.error("Token is an object, not a string! Fix frontend.");
       return res.status(400).json({ status: false, message: "Invalid token format" });
     }
