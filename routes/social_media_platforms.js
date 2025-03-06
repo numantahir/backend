@@ -109,7 +109,7 @@ router.post("/add-platform", verifyToken, async (req, res) => {
 router.get("/platforms", verifyToken, async (req, res) => {
   try {
     console.log('Check Platfomr AREA');
-    console.log('Check what -1- Received > ', req.user);
+    console.log('Check what -1- Received > ', req.decoded);
     // console.log('Check what -2- Received > ', req.decoded.id);
     // let { data: socialLinks, error } = await db.supabase
     // .from("user_social_links")
