@@ -147,12 +147,24 @@ router.delete("/delete-profile/:profileId", verifyToken, async (req, res) => {
     console.log('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
     console.log('>>>>>> user_id--->', user_id);
     console.log('>>>>>> profileIdNum--->', profileIdNum);
-    const { data: savedProfile } = await db.supabase
-    .from("user_save_profiles") // Change to lowercase
-    .select(`*`)
-    .eq({"user_id": user_id}, {"profile_id": profileIdNum});
+    // const { data: savedProfile } = await db.supabase
+    // .from("user_save_profiles") // Change to lowercase
+    // .select(`*`)
+    // .eq({"user_id": user_id}, {"profile_id": profileIdNum});
   
-    if (!savedProfile) {
+    const { data: savedProfile, error } = await db.supabase
+      .from("user_save_profiles") // Ensure the table name matches exactly in Supabase
+      .select(`*`)
+      .eq("user_id", user_id) // Correct way to use .eq()
+      .eq("profile_id", profileIdNum); // Apply second filter
+
+    // if (error) {
+    //   console.error("Error fetching saved profile:", error);
+    // } else {
+    //   console.log("Saved Profile:", savedProfile);
+    // }
+
+    if (!error) {
       return res.status(404).json({ error: "Profile not found or unauthorized to delete" });
     }
 
@@ -161,7 +173,9 @@ router.delete("/delete-profile/:profileId", verifyToken, async (req, res) => {
     //   profile_id: profileIdNum,
     //   user_id: user_id
     // });
-
+    console.log('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+    console.log('Its work');
+    console.log("Saved Profile:", savedProfile);
     const DeleteData = {
       profile_id: profileIdNum,
       user_id: user_id
