@@ -163,8 +163,9 @@ router.delete("/delete-profile/:profileId", verifyToken, async (req, res) => {
     // } else {
     //   console.log("Saved Profile:", savedProfile);
     // }
-
-    if (!error) {
+    console.error("Error fetching saved profile:", error);
+    console.log("Saved Profile:", savedProfile);
+    if (error) {
       return res.status(404).json({ error: "Profile not found or unauthorized to delete" });
     }
 
