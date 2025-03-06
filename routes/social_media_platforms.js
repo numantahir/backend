@@ -132,8 +132,10 @@ router.get("/platforms", verifyToken, async (req, res) => {
     // If no records are found for the user, return all user_social_links
     if (!socialLinks || socialLinks.length === 0) {
       let { data: allSocialLinks, error: allError } = await db.supabase
-        .from("user_social_links")
-        .select("id, social_link, user_social_status, created, updated, social_media_platforms: social_type_id(*)");
+        // .from("user_social_links")
+        // .select("id, social_link, user_social_status, created, updated, social_media_platforms: social_type_id(*)");
+        .from("social_media_platforms")
+        .select(`*`);
 
       if (allError) {
         return res.status(500).json({ status: false, message: "Database error", error: allError });
