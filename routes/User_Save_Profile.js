@@ -144,7 +144,9 @@ router.delete("/delete-profile/:profileId", verifyToken, async (req, res) => {
     //   profile_id: profileIdNum,
     //   user_id: user_id
     // });
-
+    console.log('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+    console.log('>>>>>> user_id--->', user_id);
+    console.log('>>>>>> profileIdNum--->', profileIdNum);
     const { data: savedProfile } = await db.supabase
     .from("user_save_profiles") // Change to lowercase
     .select(`*`)
@@ -171,11 +173,11 @@ router.delete("/delete-profile/:profileId", verifyToken, async (req, res) => {
     //     .delete()
     //     .match(DeleteData);
   
-        const { error } = await db.supabase
-          .from('user_save_profiles')
-          .delete()
-          .eq('user_id', user_id)
-          .eq('profile_id', profileIdNum);
+        // const { error } = await db.supabase
+        //   .from('user_save_profiles')
+        //   .delete()
+        //   .eq('user_id', user_id)
+        //   .eq('profile_id', profileIdNum);
 
     console.log('Print Error--->', error);
     
