@@ -108,7 +108,7 @@ router.post("/add-platform", verifyToken, async (req, res) => {
 
 router.get("/platforms", verifyToken, async (req, res) => {
   try {
-
+    console.log('Check what  i Received > ',req);
     // let { data: socialLinks, error } = await db.supabase
     // .from("user_social_links")
     // .select("id, social_link, user_social_status, created, updated, social_media_platforms: social_type_id(*)")
