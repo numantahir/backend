@@ -3,8 +3,8 @@ const { createClient } = require('@supabase/supabase-js');
 // Load environment variables
 require('dotenv').config();
 
-const supabaseUrl = 'https://ehwhhlrghirlnnzcqwbp.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVod2hobHJnaGlybG5uemNxd2JwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5Nzg5OTgsImV4cCI6MjA1NjU1NDk5OH0.b2PmIfXiwABBzq9-yOHxGC3BhJyOJ4pDbYfIpS8mPxA'
+const supabaseUrl = 'https://couxcmkayjjpbfljqncj.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvdXhjbWtheWpqcGJmbGpxbmNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyNzMzNzcsImV4cCI6MjA1Njg0OTM3N30.WjObgKUCbZeb0pI6xHY5L1MGoHS6BUb8tEMQbkzjGx8'
 
 
 if (!supabaseUrl || !supabaseKey) {
