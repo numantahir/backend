@@ -184,7 +184,8 @@ const verifyToken = (req, res, next) => {
     }
 
     // Ensure SECRET_KEY is set*
-    const secretKey = process.env.SECRET_KEY || 'secret';
+    // const secretKey = process.env.SECRET_KEY || 'secret';
+    const secretKey = 'hfs7823bsduf8723bhsd8723bsdhjfb8723hsd';
     if (!secretKey) {
       console.error("SECRET_KEY is not defined!");
       return res.status(500).json({ 
