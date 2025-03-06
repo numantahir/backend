@@ -195,6 +195,7 @@ const verifyToken = (req, res, next) => {
 
     // Verify the token
     try {
+      console.log("Secret Key:", secretKey);
       const decoded = jwt.verify(token, secretKey);
       console.log("Decoded Token:", decoded);
       
@@ -457,7 +458,7 @@ Users.post("/login", async (req, res) => {
         first_name: user.first_name,
         last_name: user.last_name
       };
-
+      console.log("Login Secret Key:", SECRET_KEY);
       // Generate token without Bearer prefix
       const token = jwt.sign(tokenData, SECRET_KEY, {
         expiresIn: '24h'
