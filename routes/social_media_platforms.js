@@ -109,21 +109,21 @@ router.post("/add-platform", verifyToken, async (req, res) => {
 router.get("/platforms", verifyToken, async (req, res) => {
   try {
     console.log('Check Platfomr AREA');
-    console.log('Check what -1- Received > ', req.decoded);
+    console.log('Check what -1- Received > ', req.decoded.id);
     // console.log('Check what -2- Received > ', req.decoded.id);
-    // let { data: socialLinks, error } = await db.supabase
-    // .from("user_social_links")
-    // .select("id, social_link, user_social_status, created, updated, social_media_platforms: social_type_id(*)")
-    // .eq("user_id", userId); // Assuming userId is the parameter passed
-
     let { data: socialLinks, error } = await db.supabase
-    .from("social_media_platforms")
-    .select(`
-        id, 
-        platform_name, 
-        user_social_links!left(user_id, social_link, user_social_status, created, updated)
-    `)
-    .eq("user_social_links.user_id", userId);
+    .from("user_social_links")
+    .select("id, social_link, user_social_status, created, updated, social_media_platforms: social_type_id(*)")
+    .eq("user_id", req.decoded.id); // Assuming userId is the parameter passed
+
+    // let { data: socialLinks, error } = await db.supabase
+    // .from("social_media_platforms")
+    // .select(`
+    //     id, 
+    //     platform_name, 
+    //     user_social_links!left(user_id, social_link, user_social_status, created, updated)
+    // `)
+    // .eq("user_social_links.user_id", req.decoded.id);
 
     if (error) {
       return res.status(500).json({ status: false, message: "Database error", error });
