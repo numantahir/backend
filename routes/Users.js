@@ -413,8 +413,7 @@ Users.post("/register", async (req, res) => {
 
 Users.post("/login", async (req, res) => {
   try {
-    console.log("Login attempt for email:", req.body.email);
-
+    console.log('Login Section Check:', req.body.email);
     const result = await db.User.findOne({
       email: req.body.email
     });
