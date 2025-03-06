@@ -109,11 +109,21 @@ router.post("/add-platform", verifyToken, async (req, res) => {
 router.get("/platforms", verifyToken, async (req, res) => {
   try {
 
-    let { data: socialLinks, error } = await db.supabase
-    .from("user_social_links")
-    .select("id, social_link, user_social_status, created, updated, social_media_platforms: social_type_id(*)")
-    .eq("user_id", userId); // Assuming userId is the parameter passed
+    // let { data: socialLinks, error } = await db.supabase
+    // .from("user_social_links")
+    // .select("id, social_link, user_social_status, created, updated, social_media_platforms: social_type_id(*)")
+    // .eq("user_id", userId); // Assuming userId is the parameter passed
 
+    let { data: socialLinks, error } = await db.supabase
+    .from("social_media_platforms")
+    .select(`
+        id, 
+        platform_name,
+        user_social_links(id, social_link, user_social_status, created, updated)
+    `)
+    .leftJoin("user_social_links", "social_media_platforms.id", "user_social_links.social_type_id")
+    .eq("user_social_links.user_id", userId);
+    
     if (error) {
       return res.status(500).json({ status: false, message: "Database error", error });
     }
