@@ -52,12 +52,6 @@ router.post("/save-profile", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Profile not found" });
     }
 
-    // Check if already saved
-    // const { data: existingSave } = await UserSaveProfile.findOne({
-    //   user_id: user_id,
-    //   profile_id: profileExists.id
-    // });
-
     const { data: existingSave } = await db.supabase
     .from("user_save_profiles") // Change to lowercase
     .select(`*`)
@@ -67,9 +61,6 @@ router.post("/save-profile", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Profile already saved" });
     }
 
-    console.log('Store Data Detail --->', user_id, profileExists.id, new Date());
-
-
         const saveData = {
           user_id: user_id,
           profile_id: profileExists.id,
@@ -77,17 +68,14 @@ router.post("/save-profile", verifyToken, async (req, res) => {
         };
 
       const { data: UserSaved, error } = await db.UserSaveProfile.create(saveData);
-        // console.log('---------------->',UserSaved, error);
-    if (error) {
-      console.error("User creation error:", error);
+
+      if (error) {
       return res.status(200).json({
         status: false,
         message: "Failed to create user",
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-    
-
 
     res.json({
       message: "Profile saved successfully",
@@ -101,7 +89,6 @@ router.post("/save-profile", verifyToken, async (req, res) => {
 
 router.get("/saved-profiles", verifyToken, async (req, res) => {
   try {
-    console.log('>>>>>>>>>>>>>>>>>..', req.decoded);
     const user_id = req.decoded.id;
 
     let { data: savedProfiles, error } = await db.supabase
@@ -113,10 +100,7 @@ router.get("/saved-profiles", verifyToken, async (req, res) => {
       )
     .eq("user_id", req.decoded.id);
 
-    // console.log('-------------..', savedProfiles);
     if (error) console.error("Error fetching saved profiles:", error);
-
-
 
     res.json({
       message: "Saved profiles fetched successfully",
@@ -132,70 +116,31 @@ router.delete("/delete-profile/:profileId", verifyToken, async (req, res) => {
   try {
     const user_id = req.decoded.id;
     const { profileId } = req.params;
-    console.log('Delete Profile From->',user_id);
-    console.log('Delete Profile To->',profileId);
     const profileIdNum = parseInt(profileId, 10);
     if (isNaN(profileIdNum)) {
       return res.status(400).json({ error: "Invalid profile ID" });
     }
 
-    // Check if profile exists and belongs to user
-    // const { data: savedProfile } = await UserSaveProfile.findOne({
-    //   profile_id: profileIdNum,
-    //   user_id: user_id
-    // });
-    console.log('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
-    console.log('>>>>>> user_id--->', user_id);
-    console.log('>>>>>> profileIdNum--->', profileIdNum);
-    // const { data: savedProfile } = await db.supabase
-    // .from("user_save_profiles") // Change to lowercase
-    // .select(`*`)
-    // .eq({"user_id": user_id}, {"profile_id": profileIdNum});
-  
     const { data: savedProfile, errors } = await db.supabase
       .from("user_save_profiles") // Ensure the table name matches exactly in Supabase
       .select(`*`)
       .eq("user_id", user_id) // Correct way to use .eq()
       .eq("profile_id", profileIdNum); // Apply second filter
 
-    // if (error) {
-    //   console.error("Error fetching saved profile:", error);
-    // } else {
-    //   console.log("Saved Profile:", savedProfile);
-    // }
-    console.error("Error fetching saved profile:", errors);
-    console.log("Saved Profile:", savedProfile);
     if (errors) {
       return res.status(404).json({ errors: "Profile not found or unauthorized to delete" });
     }
 
-    // Delete the profile
-    // await UserSaveProfile.destroy({
-    //   profile_id: profileIdNum,
-    //   user_id: user_id
-    // });
-    console.log('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
-    console.log('Its work');
-    console.log("Saved Profile:", savedProfile);
     const DeleteData = {
       profile_id: profileIdNum,
       user_id: user_id
     };
-    // const { data: UserSaved, error } = await db.UserSaveProfile.destroy(DeleteData);
-
-    // const { data: DeleteSaveProfile, error } = await db.supabase
-    // .from('user_save_profiles')
-    //     .delete()
-    //     .match(DeleteData);
   
         const { error } = await db.supabase
           .from('user_save_profiles')
           .delete()
           .eq('user_id', user_id)
           .eq('profile_id', profileIdNum);
-
-    console.log('Print Error--->', error);
-    
 
     res.json({ message: "Saved profile deleted successfully" });
   } catch (error) {
